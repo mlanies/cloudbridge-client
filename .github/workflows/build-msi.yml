@@ -25,10 +25,28 @@ jobs:
 
       - name: Install WiX Toolset
         run: |
+          # Download WiX Toolset
           $url = "https://github.com/wixtoolset/wix3/releases/download/wix3112rtm/wix311.exe"
           $output = "wix311.exe"
+          Write-Host "Downloading WiX Toolset..."
           Invoke-WebRequest -Uri $url -OutFile $output
+          
+          # Install WiX Toolset
+          Write-Host "Installing WiX Toolset..."
           Start-Process -FilePath $output -ArgumentList "/quiet" -Wait
+          
+          # Add WiX to PATH
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          $env:Path += ";C:\Program Files (x86)\WiX Toolset v3.11\bin"
+          
+          # Verify installation
+          Write-Host "Verifying WiX installation..."
+          if (Test-Path "C:\Program Files (x86)\WiX Toolset v3.11\bin\candle.exe") {
+              Write-Host "WiX Toolset installed successfully"
+          } else {
+              Write-Host "WiX Toolset installation failed"
+              exit 1
+          }
 
       - name: Build Windows executable
         run: |
@@ -36,11 +54,27 @@ jobs:
 
       - name: Create MSI package
         run: |
+          # Create directory and copy files
           New-Item -ItemType Directory -Force -Path msi
           Copy-Item -Path cloudbridge-client.exe -Destination msi\
           Copy-Item -Path config\config.yaml -Destination msi\
-          & "C:\Program Files (x86)\WiX Toolset v3.11\bin\candle.exe" -out "cloudbridge-client.wixobj" "deploy\windows\cloudbridge-client.wxs"
-          & "C:\Program Files (x86)\WiX Toolset v3.11\bin\light.exe" -ext WixUIExtension -out "cloudbridge-client.msi" "cloudbridge-client.wixobj"
+          
+          # Build MSI
+          Write-Host "Building MSI package..."
+          $env:WIX = "C:\Program Files (x86)\WiX Toolset v3.11"
+          & "$env:WIX\bin\candle.exe" -out "cloudbridge-client.wixobj" "deploy\windows\cloudbridge-client.wxs"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          
+          & "$env:WIX\bin\light.exe" -ext WixUIExtension -out "cloudbridge-client.msi" "cloudbridge-client.wixobj"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          
+          # Verify MSI was created
+          if (Test-Path "cloudbridge-client.msi") {
+              Write-Host "MSI package created successfully"
+          } else {
+              Write-Host "Failed to create MSI package"
+              exit 1
+          }
 
       - name: Upload MSI artifact
         uses: actions/upload-artifact@v4
