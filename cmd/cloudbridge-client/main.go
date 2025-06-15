@@ -113,7 +113,7 @@ func main() {
 
 			err := client.EventLoop(func(tunnelInfo map[string]interface{}) {
 				log.Printf("[EVENT] Tunnel registration requested: %v", tunnelInfo)
-				tunnel, err := client.CreateTunnel(tunnelInfo)
+				_, err := client.CreateTunnel(tunnelInfo)
 				if err != nil {
 					log.Printf("Failed to create tunnel: %v", err)
 					relay.RecordError("tunnel_creation_failed")
