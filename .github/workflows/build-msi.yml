@@ -24,7 +24,7 @@ jobs:
           cache: true
 
       - name: Install WiX Toolset
-        uses: wix/setup-wix@v1
+        uses: wix/setup-wix@v2
         with:
           version: 'latest'
 
@@ -40,7 +40,7 @@ jobs:
           wixl -v -D SourceDir=msi deploy\windows\cloudbridge-client.wxs -o cloudbridge-client.msi
 
       - name: Upload MSI artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: cloudbridge-client.msi
           path: cloudbridge-client.msi

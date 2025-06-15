@@ -7,14 +7,9 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"runtime"
 	"syscall"
-	"crypto/tls"
-	"time"
-	"net/http"
 
-	"github.com/2gc-dev/cloudbridge-client/pkg/config"
 	"github.com/2gc-dev/cloudbridge-client/pkg/relay"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/sys/windows/svc"
@@ -22,24 +17,24 @@ import (
 )
 
 var (
-	version = "dev"
+	version     = "dev"
 	serviceName = "CloudBridgeClient"
 	serviceDesc = "CloudBridge Client Service"
 )
 
 const (
-	maxRetries      = 5
-	initialDelaySec = 1
-	maxDelaySec     = 30
+	defaultConfigPath  = "/etc/cloudbridge-client/config.yaml"
+	defaultLogPath     = "/var/log/cloudbridge-client/client.log"
+	defaultMetricsAddr = ":9090"
 )
 
 func main() {
 	// Parse command line arguments
 	install := flag.Bool("install", false, "Install Windows service")
 	uninstall := flag.Bool("uninstall", false, "Uninstall Windows service")
-	configPath := flag.String("config", "", "Path to config file")
-	logFilePath := flag.String("logfile", "/var/log/cloudbridge-client/client.log", "Path to log file")
-	metricsAddr := flag.String("metrics-addr", ":9090", "Address to serve metrics on")
+	configPath := flag.String("config", defaultConfigPath, "Path to config file")
+	logFilePath := flag.String("logfile", defaultLogPath, "Path to log file")
+	metricsAddr := flag.String("metrics-addr", defaultMetricsAddr, "Address to serve metrics on")
 	flag.Parse()
 
 	// Check if running as a service
@@ -77,7 +72,7 @@ func main() {
 	}
 
 	// Run as a regular application
-	runApplication()
+	runApplication(*configPath, *logFilePath, *metricsAddr)
 }
 
 func installService() error {
@@ -137,7 +132,7 @@ func (s *windowsService) Execute(args []string, r <-chan svc.ChangeRequest, chan
 	changes <- svc.Status{State: svc.Running, Accepts: svc.AcceptStop | svc.AcceptShutdown}
 
 	// Start the application in a goroutine
-	go runApplication()
+	go runApplication(defaultConfigPath, defaultLogPath, defaultMetricsAddr)
 
 	for {
 		select {
@@ -155,123 +150,49 @@ func (s *windowsService) Execute(args []string, r <-chan svc.ChangeRequest, chan
 	}
 }
 
-func runApplication() {
+func runApplication(configPath, logFilePath, metricsAddr string) {
 	// Логирование в файл и консоль
-	logFile, err := os.OpenFile(*logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	logFile, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
 		log.Fatalf("Failed to open log file: %v", err)
 	}
 	defer logFile.Close()
-	log.SetOutput(io.MultiWriter(os.Stdout, logFile))
 
-	// Запуск метрик и health check
+	// Настройка логирования
+	log.SetOutput(io.MultiWriter(os.Stdout, logFile))
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+
+	// Загрузка конфигурации
+	config, err := relay.LoadConfig(configPath)
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
+
+	// Создание и запуск relay
+	r, err := relay.NewRelay(config)
+	if err != nil {
+		log.Fatalf("Failed to create relay: %v", err)
+	}
+
+	// Запуск метрик
 	go func() {
 		http.Handle("/metrics", promhttp.Handler())
-		http.Handle("/health", http.HandlerFunc(relay.HealthCheckHandler))
-		if err := http.ListenAndServe(*metricsAddr, nil); err != nil {
+		if err := http.ListenAndServe(metricsAddr, nil); err != nil {
 			log.Printf("Failed to start metrics server: %v", err)
 		}
 	}()
 
-	cfg, err := config.LoadConfig(*configPath)
-	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
-	}
-
-	log.Printf("Running on %s/%s", runtime.GOOS, runtime.GOARCH)
-
-	var tlsConfig *tls.Config
-	if cfg.TLS.Enabled {
-		tlsConfig, err = relay.NewTLSConfig(cfg.TLS.CertFile, cfg.TLS.KeyFile, cfg.TLS.CAFile)
-		if err != nil {
-			log.Fatalf("Failed to create TLS config: %v", err)
-		}
-	}
-
+	// Обработка сигналов завершения
 	sigChan := make(chan os.Signal, 1)
-	if runtime.GOOS == "windows" {
-		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
-	} else {
-		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	// Запуск relay
+	if err := r.Start(); err != nil {
+		log.Fatalf("Failed to start relay: %v", err)
 	}
 
-	go func() {
-		retries := 0
-		delay := initialDelaySec
-		for {
-			start := time.Now()
-			client := relay.NewClient(cfg.TLS.Enabled, tlsConfig)
-			if err := client.Connect(cfg.Server.Host, cfg.Server.Port); err != nil {
-				log.Printf("Failed to connect to relay server: %v", err)
-				relay.RecordError("connection_failed")
-				relay.UpdateHealthStatus("degraded")
-				retries++
-				if retries > maxRetries {
-					log.Fatalf("Max reconnect attempts reached. Exiting.")
-				}
-				log.Printf("Retrying in %d seconds...", delay)
-				time.Sleep(time.Duration(delay) * time.Second)
-				delay = min(delay*2, maxDelaySec)
-				continue
-			}
-			retries = 0
-			delay = initialDelaySec
-			defer client.Close()
-
-			if err := client.Handshake(cfg.Server.JWTToken, version); err != nil {
-				log.Printf("Handshake failed: %v", err)
-				relay.RecordError("handshake_failed")
-				relay.UpdateHealthStatus("degraded")
-				client.Close()
-				retries++
-				if retries > maxRetries {
-					log.Fatalf("Max reconnect attempts reached. Exiting.")
-				}
-				log.Printf("Retrying in %d seconds...", delay)
-				time.Sleep(time.Duration(delay) * time.Second)
-				delay = min(delay*2, maxDelaySec)
-				continue
-			}
-
-			relay.RecordConnection(time.Since(start).Seconds())
-			relay.UpdateHealthStatus("ok")
-
-			err := client.EventLoop(func(tunnelInfo map[string]interface{}) {
-				log.Printf("[EVENT] Tunnel registration requested: %v", tunnelInfo)
-				_, err := client.CreateTunnel(tunnelInfo)
-				if err != nil {
-					log.Printf("Failed to create tunnel: %v", err)
-					relay.RecordError("tunnel_creation_failed")
-					return
-				}
-				relay.SetActiveTunnels(len(client.ListTunnels()))
-			})
-			if err != nil {
-				log.Printf("Event loop error: %v", err)
-				relay.RecordError("event_loop_failed")
-				relay.UpdateHealthStatus("degraded")
-				client.Close()
-				retries++
-				if retries > maxRetries {
-					log.Fatalf("Max reconnect attempts reached. Exiting.")
-				}
-				log.Printf("Retrying in %d seconds...", delay)
-				time.Sleep(time.Duration(delay) * time.Second)
-				delay = min(delay*2, maxDelaySec)
-				continue
-			}
-			break
-		}
-	}()
-
+	// Ожидание сигнала завершения
 	<-sigChan
 	log.Println("Shutting down...")
-	relay.UpdateHealthStatus("shutting_down")
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
+	r.Stop()
 } 
