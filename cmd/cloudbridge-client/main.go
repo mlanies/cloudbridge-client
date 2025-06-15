@@ -10,10 +10,11 @@ import (
 	"syscall"
 	"crypto/tls"
 	"time"
-	"sync/atomic"
+	"net/http"
 
 	"github.com/2gc-dev/cloudbridge-client/pkg/config"
 	"github.com/2gc-dev/cloudbridge-client/pkg/relay"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var version = "1.0.0"
@@ -24,16 +25,10 @@ const (
 	maxDelaySec     = 30
 )
 
-var (
-	connectionTimeSum int64
-	connectionCount  int64
-	errorCount        int64
-	activeTunnels    int64
-)
-
 func main() {
 	configPath := flag.String("config", "", "Path to config file")
 	logFilePath := flag.String("logfile", "/var/log/cloudbridge-client/client.log", "Path to log file")
+	metricsAddr := flag.String("metrics-addr", ":9090", "Address to serve metrics on")
 	flag.Parse()
 
 	// Логирование в файл и консоль
@@ -43,6 +38,15 @@ func main() {
 	}
 	defer logFile.Close()
 	log.SetOutput(io.MultiWriter(os.Stdout, logFile))
+
+	// Запуск метрик и health check
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		http.Handle("/health", http.HandlerFunc(relay.HealthCheckHandler))
+		if err := http.ListenAndServe(*metricsAddr, nil); err != nil {
+			log.Printf("Failed to start metrics server: %v", err)
+		}
+	}()
 
 	cfg, err := config.LoadConfig(*configPath)
 	if err != nil {
@@ -74,7 +78,8 @@ func main() {
 			client := relay.NewClient(cfg.TLS.Enabled, tlsConfig)
 			if err := client.Connect(cfg.Server.Host, cfg.Server.Port); err != nil {
 				log.Printf("Failed to connect to relay server: %v", err)
-				atomic.AddInt64(&errorCount, 1)
+				relay.RecordError("connection_failed")
+				relay.UpdateHealthStatus("degraded")
 				retries++
 				if retries > maxRetries {
 					log.Fatalf("Max reconnect attempts reached. Exiting.")
@@ -90,7 +95,8 @@ func main() {
 
 			if err := client.Handshake(cfg.Server.JWTToken, version); err != nil {
 				log.Printf("Handshake failed: %v", err)
-				atomic.AddInt64(&errorCount, 1)
+				relay.RecordError("handshake_failed")
+				relay.UpdateHealthStatus("degraded")
 				client.Close()
 				retries++
 				if retries > maxRetries {
@@ -102,17 +108,23 @@ func main() {
 				continue
 			}
 
-			atomic.AddInt64(&connectionCount, 1)
-			atomic.AddInt64(&connectionTimeSum, int64(time.Since(start).Milliseconds()))
+			relay.RecordConnection(time.Since(start).Seconds())
+			relay.UpdateHealthStatus("ok")
 
 			err := client.EventLoop(func(tunnelInfo map[string]interface{}) {
 				log.Printf("[EVENT] Tunnel registration requested: %v", tunnelInfo)
-				atomic.AddInt64(&activeTunnels, 1)
-				// Здесь можно реализовать динамическое создание туннеля по tunnelInfo
+				tunnel, err := client.CreateTunnel(tunnelInfo)
+				if err != nil {
+					log.Printf("Failed to create tunnel: %v", err)
+					relay.RecordError("tunnel_creation_failed")
+					return
+				}
+				relay.SetActiveTunnels(len(client.ListTunnels()))
 			})
 			if err != nil {
 				log.Printf("Event loop error: %v", err)
-				atomic.AddInt64(&errorCount, 1)
+				relay.RecordError("event_loop_failed")
+				relay.UpdateHealthStatus("degraded")
 				client.Close()
 				retries++
 				if retries > maxRetries {
@@ -123,26 +135,13 @@ func main() {
 				delay = min(delay*2, maxDelaySec)
 				continue
 			}
-			// Если EventLoop завершился без ошибки — выход
 			break
-		}
-	}()
-
-	// Периодический вывод метрик
-	go func() {
-		for {
-			time.Sleep(60 * time.Second)
-			cc := atomic.LoadInt64(&connectionCount)
-			ct := atomic.LoadInt64(&connectionTimeSum)
-			ec := atomic.LoadInt64(&errorCount)
-			at := atomic.LoadInt64(&activeTunnels)
-			avgConnTime := float64(ct) / float64(cc+1)
-			log.Printf("[METRICS] connections: %d, avg_connection_time_ms: %.2f, errors: %d, active_tunnels: %d", cc, avgConnTime, ec, at)
 		}
 	}()
 
 	<-sigChan
 	log.Println("Shutting down...")
+	relay.UpdateHealthStatus("shutting_down")
 }
 
 func min(a, b int) int {

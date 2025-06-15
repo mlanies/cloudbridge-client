@@ -4,116 +4,105 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+
+env:
+  GO_VERSION: '1.21'
+  CGO_ENABLED: 0
 
 jobs:
+  build:
+    name: Build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            goos: linux
+            artifact_name: cloudbridge-client-linux-amd64
+          - os: windows-latest
+            goos: windows
+            artifact_name: cloudbridge-client-windows-amd64.exe
+          - os: macos-latest
+            goos: darwin
+            artifact_name: cloudbridge-client-darwin-amd64
+
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: get_version
+        run: |
+          echo "VERSION=$(git describe --tags --always --dirty)" >> $GITHUB_ENV
+          echo "version=$(git describe --tags --always --dirty)" >> $GITHUB_OUTPUT
+
+      - name: Build
+        shell: bash
+        run: |
+          GOOS=${{ matrix.goos }} \
+          GOARCH=amd64 \
+          go build -v -ldflags "-X main.Version=${VERSION}" -o ${{ matrix.artifact_name }} ./cmd/cloudbridge-client
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_name }}
+
   release:
     name: Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/cloudbridge-client-linux-amd64
+            artifacts/cloudbridge-client-windows-amd64.exe
+            artifacts/cloudbridge-client-darwin-amd64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  integration-test:
+    name: Integration Test
+    runs-on: ubuntu-latest
+    needs: build
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.21'
+          go-version: ${{ env.GO_VERSION }}
 
-      - name: Build for all platforms
+      - name: Build relay-server
         run: |
-          # Windows
-          GOOS=windows GOARCH=amd64 go build -o build/cloudbridge-client-windows-amd64.exe ./cmd/cloudbridge-client
-          GOOS=windows GOARCH=arm64 go build -o build/cloudbridge-client-windows-arm64.exe ./cmd/cloudbridge-client
+          go build -o relay-server ./cmd/cloudbridge-server
 
-          # Linux
-          GOOS=linux GOARCH=amd64 go build -o build/cloudbridge-client-linux-amd64 ./cmd/cloudbridge-client
-          GOOS=linux GOARCH=arm64 go build -o build/cloudbridge-client-linux-arm64 ./cmd/cloudbridge-client
-
-          # macOS
-          GOOS=darwin GOARCH=amd64 go build -o build/cloudbridge-client-darwin-amd64 ./cmd/cloudbridge-client
-          GOOS=darwin GOARCH=arm64 go build -o build/cloudbridge-client-darwin-arm64 ./cmd/cloudbridge-client
-
-      - name: Create checksums
+      - name: Build cloudbridge-client
         run: |
-          cd build
-          sha256sum * > checksums.txt
+          go build -o cloudbridge-client ./cmd/cloudbridge-client
 
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: false
-
-      - name: Upload Release Assets
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./build/cloudbridge-client-windows-amd64.exe
-          asset_name: cloudbridge-client-windows-amd64.exe
-          asset_content_type: application/octet-stream
-
-      - name: Upload Release Assets - Windows ARM64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./build/cloudbridge-client-windows-arm64.exe
-          asset_name: cloudbridge-client-windows-arm64.exe
-          asset_content_type: application/octet-stream
-
-      - name: Upload Release Assets - Linux AMD64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./build/cloudbridge-client-linux-amd64
-          asset_name: cloudbridge-client-linux-amd64
-          asset_content_type: application/octet-stream
-
-      - name: Upload Release Assets - Linux ARM64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./build/cloudbridge-client-linux-arm64
-          asset_name: cloudbridge-client-linux-arm64
-          asset_content_type: application/octet-stream
-
-      - name: Upload Release Assets - macOS AMD64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./build/cloudbridge-client-darwin-amd64
-          asset_name: cloudbridge-client-darwin-amd64
-          asset_content_type: application/octet-stream
-
-      - name: Upload Release Assets - macOS ARM64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./build/cloudbridge-client-darwin-arm64
-          asset_name: cloudbridge-client-darwin-arm64
-          asset_content_type: application/octet-stream
-
-      - name: Upload Release Assets - Checksums
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./build/checksums.txt
-          asset_name: checksums.txt
-          asset_content_type: text/plain 
+      - name: Run integration tests
+        run: |
+          go test -v ./test/ 
