@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
-	"runtime"
 	"syscall"
 
+	"github.com/2gc-dev/cloudbridge-client/pkg/config"
 	"github.com/2gc-dev/cloudbridge-client/pkg/relay"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/sys/windows/svc"
@@ -163,16 +164,17 @@ func runApplication(configPath, logFilePath, metricsAddr string) {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 
 	// Загрузка конфигурации
-	config, err := relay.LoadConfig(configPath)
+	cfg, err := config.LoadConfig(configPath)
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
 	// Создание и запуск relay
-	r, err := relay.NewRelay(config)
-	if err != nil {
-		log.Fatalf("Failed to create relay: %v", err)
+	client := relay.NewClient(cfg.TLS.Enabled, nil)
+	if err := client.Connect(cfg.Server.Host, cfg.Server.Port); err != nil {
+		log.Fatalf("Failed to connect to server: %v", err)
 	}
+	defer client.Close()
 
 	// Запуск метрик
 	go func() {
@@ -186,13 +188,8 @@ func runApplication(configPath, logFilePath, metricsAddr string) {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	// Запуск relay
-	if err := r.Start(); err != nil {
-		log.Fatalf("Failed to start relay: %v", err)
-	}
-
 	// Ожидание сигнала завершения
 	<-sigChan
 	log.Println("Shutting down...")
-	r.Stop()
+	client.Close()
 } 
