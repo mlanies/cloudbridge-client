@@ -1,8 +1,9 @@
 package relay
 
 import (
+	"context"
+	"fmt"
 	"testing"
-	"time"
 )
 
 func TestTunnelCreation(t *testing.T) {
