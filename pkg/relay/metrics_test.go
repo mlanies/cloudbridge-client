@@ -8,41 +8,39 @@ import (
 )
 
 func TestMetrics(t *testing.T) {
-	// Initialize metrics
-	InitMetrics()
-
 	// Record some metrics
-	RecordConnection()
-	RecordTunnel()
+	RecordConnection(1.5)
 	RecordError("test_error")
-	RecordHeartbeat()
-	RecordHeartbeatError()
-	RecordHeartbeatLatency(100 * time.Millisecond)
+	SetActiveTunnels(5)
+	RecordHeartbeat(0.1)
+	RecordMissedHeartbeat()
 
 	// Create test server
-	server := httptest.NewServer(http.HandlerFunc(MetricsHandler))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/metrics" {
+			t.Errorf("Expected to request '/metrics', got: %s", r.URL.Path)
+		}
+		if r.Method != "GET" {
+			t.Errorf("Expected GET request, got: %s", r.Method)
+		}
+	}))
 	defer server.Close()
 
 	// Test metrics endpoint
-	resp, err := http.Get(server.URL)
+	resp, err := http.Get(server.URL + "/metrics")
 	if err != nil {
 		t.Fatalf("Failed to get metrics: %v", err)
 	}
-	defer resp.Body.Close()
-
 	if resp.StatusCode != http.StatusOK {
-		t.Errorf("Expected status OK, got %v", resp.StatusCode)
+		t.Errorf("Expected status OK, got: %v", resp.StatusCode)
 	}
 }
 
 func TestHealthCheck(t *testing.T) {
-	// Initialize metrics
-	InitMetrics()
-
 	// Record some metrics
-	RecordConnection()
-	RecordTunnel()
+	RecordConnection(1.0)
 	RecordError("test_error")
+	SetActiveTunnels(3)
 
 	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(HealthCheckHandler))
@@ -67,19 +65,15 @@ func TestHealthCheck(t *testing.T) {
 }
 
 func TestMetricsConcurrency(t *testing.T) {
-	// Initialize metrics
-	InitMetrics()
-
 	// Test concurrent access
 	done := make(chan bool)
 	for i := 0; i < 10; i++ {
 		go func() {
-			RecordConnection()
-			RecordTunnel()
-			RecordError("test_error")
-			RecordHeartbeat()
-			RecordHeartbeatError()
-			RecordHeartbeatLatency(100 * time.Millisecond)
+			RecordConnection(1.0)
+			RecordError("concurrent_error")
+			SetActiveTunnels(i)
+			RecordHeartbeat(0.1)
+			RecordMissedHeartbeat()
 			done <- true
 		}()
 	}
@@ -91,21 +85,18 @@ func TestMetricsConcurrency(t *testing.T) {
 }
 
 func TestMetricsPersistence(t *testing.T) {
-	// Initialize metrics
-	InitMetrics()
-
 	// Record initial metrics
-	RecordConnection()
-	RecordTunnel()
+	RecordConnection(1.0)
 	RecordError("test_error")
+	SetActiveTunnels(2)
 
 	// Get initial health status
 	initialStatus := GetHealthStatus()
 
 	// Record more metrics
-	RecordConnection()
-	RecordTunnel()
+	RecordConnection(1.0)
 	RecordError("test_error")
+	SetActiveTunnels(3)
 
 	// Get updated health status
 	updatedStatus := GetHealthStatus()
