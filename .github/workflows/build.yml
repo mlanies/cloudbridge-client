@@ -46,7 +46,9 @@ jobs:
 
     - name: Get version
       id: get_version
-      run: echo "VERSION=$(git describe --tags --always --dirty)" >> $GITHUB_ENV
+      run: |
+        echo "VERSION=$(git describe --tags --always --dirty)" >> $GITHUB_ENV
+        echo "version=$(git describe --tags --always --dirty)" >> $GITHUB_OUTPUT
 
     - name: Build
       run: |
