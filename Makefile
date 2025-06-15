@@ -1,4 +1,4 @@
-.PHONY: all build clean test install build-all build-russian
+.PHONY: all build clean test install build-all build-russian build-msi
 
 BINARY_NAME=cloudbridge-client
 VERSION=$(shell git describe --tags --always --dirty)
@@ -64,4 +64,16 @@ uninstall:
 	@sudo systemctl disable cloudbridge-client
 	@sudo rm -f /usr/local/bin/${BINARY_NAME}
 	@sudo rm -f /etc/systemd/system/cloudbridge-client.service
-	@sudo systemctl daemon-reload 
+	@sudo systemctl daemon-reload
+
+build-msi: build-windows
+	@echo "Building MSI installer..."
+	@mkdir -p ${BUILD_DIR}/msi
+	@cp ${BUILD_DIR}/${BINARY_NAME}-windows-amd64.exe ${BUILD_DIR}/msi/${BINARY_NAME}.exe
+	@cp config/config.yaml ${BUILD_DIR}/msi/
+	@wixl -v -D SourceDir=${BUILD_DIR}/msi deploy/windows/cloudbridge-client.wxs -o ${BUILD_DIR}/cloudbridge-client.msi
+
+build-windows:
+	@echo "Building Windows executable..."
+	@mkdir -p ${BUILD_DIR}
+	@GOOS=windows GOARCH=amd64 go build ${LDFLAGS} -o ${BUILD_DIR}/${BINARY_NAME}-windows-amd64.exe ./cmd/cloudbridge-client 

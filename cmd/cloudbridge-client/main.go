@@ -2,10 +2,12 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"syscall"
 	"crypto/tls"
@@ -15,9 +17,15 @@ import (
 	"github.com/2gc-dev/cloudbridge-client/pkg/config"
 	"github.com/2gc-dev/cloudbridge-client/pkg/relay"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"golang.org/x/sys/windows/svc"
+	"golang.org/x/sys/windows/svc/mgr"
 )
 
-var version = "1.0.0"
+var (
+	version = "dev"
+	serviceName = "CloudBridgeClient"
+	serviceDesc = "CloudBridge Client Service"
+)
 
 const (
 	maxRetries      = 5
@@ -26,11 +34,128 @@ const (
 )
 
 func main() {
+	// Parse command line arguments
+	install := flag.Bool("install", false, "Install Windows service")
+	uninstall := flag.Bool("uninstall", false, "Uninstall Windows service")
 	configPath := flag.String("config", "", "Path to config file")
 	logFilePath := flag.String("logfile", "/var/log/cloudbridge-client/client.log", "Path to log file")
 	metricsAddr := flag.String("metrics-addr", ":9090", "Address to serve metrics on")
 	flag.Parse()
 
+	// Check if running as a service
+	isService, err := svc.IsWindowsService()
+	if err != nil {
+		log.Fatalf("Failed to determine if running as service: %v", err)
+	}
+
+	if isService {
+		// Run as a Windows service
+		err = svc.Run(serviceName, &windowsService{})
+		if err != nil {
+			log.Fatalf("Service failed: %v", err)
+		}
+		return
+	}
+
+	// Handle service installation/uninstallation
+	if *install {
+		err = installService()
+		if err != nil {
+			log.Fatalf("Failed to install service: %v", err)
+		}
+		fmt.Println("Service installed successfully")
+		return
+	}
+
+	if *uninstall {
+		err = uninstallService()
+		if err != nil {
+			log.Fatalf("Failed to uninstall service: %v", err)
+		}
+		fmt.Println("Service uninstalled successfully")
+		return
+	}
+
+	// Run as a regular application
+	runApplication()
+}
+
+func installService() error {
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+
+	m, err := mgr.Connect()
+	if err != nil {
+		return err
+	}
+	defer m.Disconnect()
+
+	s, err := m.OpenService(serviceName)
+	if err == nil {
+		s.Close()
+		return fmt.Errorf("service %s already exists", serviceName)
+	}
+
+	config := mgr.Config{
+		DisplayName:      serviceName,
+		Description:      serviceDesc,
+		StartType:        mgr.StartAutomatic,
+		ServiceStartName: "LocalSystem",
+	}
+
+	s, err = m.CreateService(serviceName, exe, config)
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+
+	return nil
+}
+
+func uninstallService() error {
+	m, err := mgr.Connect()
+	if err != nil {
+		return err
+	}
+	defer m.Disconnect()
+
+	s, err := m.OpenService(serviceName)
+	if err != nil {
+		return fmt.Errorf("service %s is not installed", serviceName)
+	}
+	defer s.Close()
+
+	return s.Delete()
+}
+
+type windowsService struct{}
+
+func (s *windowsService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
+	changes <- svc.Status{State: svc.StartPending}
+	changes <- svc.Status{State: svc.Running, Accepts: svc.AcceptStop | svc.AcceptShutdown}
+
+	// Start the application in a goroutine
+	go runApplication()
+
+	for {
+		select {
+		case c := <-r:
+			switch c.Cmd {
+			case svc.Interrogate:
+				changes <- c.CurrentStatus
+			case svc.Stop, svc.Shutdown:
+				changes <- svc.Status{State: svc.StopPending}
+				return
+			default:
+				log.Printf("unexpected control request #%d", c)
+			}
+		}
+	}
+}
+
+func runApplication() {
 	// Логирование в файл и консоль
 	logFile, err := os.OpenFile(*logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {

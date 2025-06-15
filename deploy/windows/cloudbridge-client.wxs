@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <Product Id="*" 
+             Name="CloudBridge Client" 
+             Language="1033" 
+             Version="1.0.0.0" 
+             Manufacturer="Your Company" 
+             UpgradeCode="PUT-GUID-HERE">
+        
+        <Package InstallerVersion="200" 
+                 Compressed="yes" 
+                 InstallScope="perMachine" />
+
+        <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+        <MediaTemplate EmbedCab="yes" />
+
+        <Feature Id="ProductFeature" Title="CloudBridgeClient" Level="1">
+            <ComponentGroupRef Id="ProductComponents" />
+        </Feature>
+
+        <Directory Id="TARGETDIR" Name="SourceDir">
+            <Directory Id="ProgramFilesFolder">
+                <Directory Id="INSTALLFOLDER" Name="CloudBridgeClient">
+                    <Component Id="ProductComponents" Guid="*">
+                        <File Id="CloudBridgeClientEXE" 
+                              Source="$(var.SourceDir)\cloudbridge-client.exe" 
+                              KeyPath="yes" />
+                        <File Id="ConfigFile" 
+                              Source="$(var.SourceDir)\config.yaml" 
+                              KeyPath="no" />
+                    </Component>
+                </Directory>
+            </Directory>
+        </Directory>
+
+        <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+            <Component Id="ProductComponents" Guid="*">
+                <File Id="CloudBridgeClientEXE" 
+                      Source="$(var.SourceDir)\cloudbridge-client.exe" 
+                      KeyPath="yes" />
+                <File Id="ConfigFile" 
+                      Source="$(var.SourceDir)\config.yaml" 
+                      KeyPath="no" />
+            </Component>
+        </ComponentGroup>
+
+        <CustomAction Id="InstallService" 
+                     Execute="deferred" 
+                     Return="check" 
+                     Directory="INSTALLFOLDER" 
+                     ExeCommand="[SystemFolder]cmd.exe /c &quot;cloudbridge-client.exe install&quot;" />
+
+        <CustomAction Id="UninstallService" 
+                     Execute="deferred" 
+                     Return="check" 
+                     Directory="INSTALLFOLDER" 
+                     ExeCommand="[SystemFolder]cmd.exe /c &quot;cloudbridge-client.exe uninstall&quot;" />
+
+        <InstallExecuteSequence>
+            <Custom Action="InstallService" After="InstallFiles">NOT Installed</Custom>
+            <Custom Action="UninstallService" Before="RemoveFiles">Installed</Custom>
+        </InstallExecuteSequence>
+    </Product>
+</Wix> 
