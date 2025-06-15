@@ -68,12 +68,9 @@ jobs:
       - name: Build
         run: |
           go build -v -o cloudbridge-client ./cmd/cloudbridge-client
-          go build -v -o cloudbridge-server ./cmd/cloudbridge-server
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
           name: binaries
-          path: |
-            cloudbridge-client
-            cloudbridge-server 
+          path: cloudbridge-client 
