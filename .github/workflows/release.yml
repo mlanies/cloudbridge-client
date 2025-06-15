@@ -37,9 +37,8 @@ jobs:
         with:
           files: |
             dist/checksums.txt
-            dist/*.zip
             dist/*.tar.gz
-            dist/*.exe
+            dist/*.zip
             dist/*/cloudbridge-client*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
