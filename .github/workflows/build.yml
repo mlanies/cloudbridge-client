@@ -43,7 +43,7 @@ jobs:
         go-version: '1.21'
 
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Get version
       id: get_version
@@ -56,7 +56,7 @@ jobs:
         go build -v -ldflags "-X main.Version=${VERSION}" -o bin/${{ matrix.artifact_name }} ./cmd/cloudbridge-client
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.artifact_name }}
         path: bin/${{ matrix.artifact_name }}
@@ -68,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Download all artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
 
     - name: Create Release
       uses: softprops/action-gh-release@v1
