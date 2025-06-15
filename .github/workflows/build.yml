@@ -51,6 +51,7 @@ jobs:
         echo "version=$(git describe --tags --always --dirty)" >> $GITHUB_OUTPUT
 
     - name: Build
+      shell: bash
       run: |
         GOOS=${{ matrix.goos }} \
         GOARCH=amd64 \
