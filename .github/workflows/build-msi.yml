@@ -1,15 +1,41 @@
-name: Build MSI Package
+name: Build and Package MSI
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
+    inputs:
+      uploadAsLatest:
+        type: string
+        default: "False"
+        required: false
+        description: 'Also upload the msi installer to storage account as latest'
+      version:
+        type: string
+        default: ""
+        required: false
+        description: 'Version to build (optional). Will use git tag version if not specified.'
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AZURE_ACCOUNT_NAME: cloudbridge-artifacts
+  AZURE_MSI_CONTAINER_NAME: msi-installer
 
 jobs:
-  build:
+  build_msi_installer:
     runs-on: windows-latest
+    name: Build Windows MSI
+    environment:
+      production
     steps:
-      - uses: actions/checkout@v4
+      - name: Check input parameters
+        run: |
+          echo "uploadAsLatest: ${{ inputs.uploadAsLatest }}"
+          echo "version: ${{ inputs.version }}"
+
+      - name: Checkout Repo
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -39,7 +65,11 @@ jobs:
       - name: Get Version
         id: get_version
         run: |
-          $version = $env:GITHUB_REF -replace 'refs/tags/v', ''
+          if ($env:INPUT_VERSION) {
+            $version = $env:INPUT_VERSION
+          } else {
+            $version = $env:GITHUB_REF -replace 'refs/tags/v', ''
+          }
           echo "VERSION=$version" >> $env:GITHUB_ENV
           echo "version=$version" >> $env:GITHUB_OUTPUT
 
@@ -110,20 +140,54 @@ jobs:
               exit 1
           }
 
+      - uses: azure/login@v1
+        with:
+          subscription-id: ${{secrets.AZURE_SUBSCRIPTION_ID}}
+          tenant-id: ${{secrets.AZURE_TENANT_ID}}
+          client-id: ${{secrets.AZURE_CLIENT_ID}}
+
+      - name: Download JSON file from Azure Blob Storage
+        id: download-json
+        run: |
+          az storage blob download --account-name ${{ env.AZURE_ACCOUNT_NAME }} --container-name ${{ env.AZURE_MSI_CONTAINER_NAME }} --name latest_version.json --file downloaded_version.json --auth-mode login
+          $downloaded_version = (Get-Content downloaded_version.json | ConvertFrom-Json).cloudbridge
+          echo "::set-output name=downloaded_version::$downloaded_version"
+
+      - name: Check if version input is valid and upload JSON file
+        run: |
+          $version = "${{ steps.get_version.outputs.version }}"
+          $downloaded_version = "${{ steps.download-json.outputs.downloaded_version }}"
+          $uploadAsLatest = "${{ github.event.inputs.uploadAsLatest }}"
+          if ($uploadAsLatest -ieq 'True' -and $version -like '1.*' -and [Version]$version -gt [Version]$downloaded_version){
+            $jsonContent = @{
+              "cloudbridge" = $version
+            } | ConvertTo-Json -Depth 100
+            $jsonContent | Out-File -FilePath latest_version.json -Encoding UTF8
+            Write-Output "Created latest_version.json with version: $version"
+            az storage blob upload --account-name ${{ env.AZURE_ACCOUNT_NAME }} --container-name ${{ env.AZURE_MSI_CONTAINER_NAME }} --file "latest_version.json" --name "latest_version.json" --overwrite --auth-mode login
+          } else {
+            Write-Output "skip uploading since version input isn't greater than latest version or does not start with '1.'"
+          }
+
+      - name: Upload to Azure Storage
+        run: |
+          function Upload-File($filePath, $blobName, $containerName) {
+            az storage blob upload --account-name ${{ env.AZURE_ACCOUNT_NAME }} --container-name $containerName --file $filePath --name $blobName --overwrite --auth-mode login
+          }
+    
+          if ($env:INPUT_UPLOADASLATEST -ieq 'True') {
+            Upload-File "CloudBridgeClient.msi" "cloudbridge.msi" ${{ env.AZURE_MSI_CONTAINER_NAME }}
+            az storage blob copy start --account-name ${{ env.AZURE_ACCOUNT_NAME }} --destination-container ${{ env.AZURE_MSI_CONTAINER_NAME }} --destination-blob "CloudBridgeClient-${{ steps.get_version.outputs.version }}.msi" --source-container ${{ env.AZURE_MSI_CONTAINER_NAME }} --source-blob "cloudbridge.msi" --auth-mode login
+          } else {
+            Upload-File "CloudBridgeClient.msi" "CloudBridgeClient-${{ steps.get_version.outputs.version }}.msi" ${{ env.AZURE_MSI_CONTAINER_NAME }}
+          }
+        env:
+          INPUT_UPLOADASLATEST: ${{ github.event.inputs.uploadAsLatest }}
+        shell: pwsh
+
       - name: Upload MSI Artifact
         uses: actions/upload-artifact@v4
         with:
           name: cloudbridge-client-msi
           path: CloudBridgeClient.msi
-          if-no-files-found: error
-
-      - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
-        with:
-          files: CloudBridgeClient.msi
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          if-no-files-found: error 
