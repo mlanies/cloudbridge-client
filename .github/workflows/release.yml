@@ -68,6 +68,11 @@ jobs:
         with:
           path: artifacts
 
+      - name: Create checksums
+        run: |
+          cd artifacts
+          sha256sum * > checksums.txt
+
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
@@ -79,5 +84,36 @@ jobs:
             artifacts/cloudbridge-client-linux-amd64
             artifacts/cloudbridge-client-windows-amd64.exe
             artifacts/cloudbridge-client-darwin-amd64
+            artifacts/checksums.txt
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload source code
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/artifacts/checksums.txt
+          asset_name: checksums.txt
+          asset_content_type: text/plain
+
+      - name: Upload source code (zip)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/artifacts/cloudbridge-client-linux-amd64
+          asset_name: cloudbridge-client-linux-amd64
+          asset_content_type: application/octet-stream
+
+      - name: Upload source code (tar.gz)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/artifacts/cloudbridge-client-windows-amd64.exe
+          asset_name: cloudbridge-client-windows-amd64.exe
+          asset_content_type: application/octet-stream 
