@@ -10,6 +10,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -25,9 +27,21 @@ jobs:
       - name: Install WiX
         run: |
           Write-Host "Installing WiX v6..."
-          dotnet tool install --global wix
-          Write-Host "WiX installation completed"
-          wix --version
+          try {
+            dotnet tool install --global wix
+            Write-Host "WiX installation completed"
+            wix --version
+          } catch {
+            Write-Error "Failed to install WiX: $_"
+            exit 1
+          }
+
+      - name: Get Version
+        id: get_version
+        run: |
+          $version = $env:GITHUB_REF -replace 'refs/tags/v', ''
+          echo "VERSION=$version" >> $env:GITHUB_ENV
+          echo "version=$version" >> $env:GITHUB_OUTPUT
 
       - name: Build Windows Binary
         run: |
@@ -58,7 +72,7 @@ jobs:
           }
           
           Write-Host "Building MSI package with WiX v6..."
-          dotnet build msi\CloudBridgeClient.wixproj -c Release
+          dotnet build msi\CloudBridgeClient.wixproj -c Release -p:Version=$env:VERSION
           if ($LASTEXITCODE -ne 0) {
               Write-Error "Failed to create MSI package"
               exit 1
@@ -71,6 +85,26 @@ jobs:
           if (Test-Path "CloudBridgeClient.msi") {
               Write-Host "MSI package created successfully"
               Get-Item "CloudBridgeClient.msi" | Select-Object Name, Length, LastWriteTime
+              
+              # Verify MSI package
+              Write-Host "Verifying MSI package..."
+              $msiInfo = & {
+                  $msi = New-Object -ComObject WindowsInstaller.Installer
+                  $database = $msi.OpenDatabase("CloudBridgeClient.msi", 0)
+                  $view = $database.OpenView("SELECT * FROM Property WHERE Property = 'ProductVersion'")
+                  $view.Execute()
+                  $record = $view.Fetch()
+                  $version = $record.StringData(2)
+                  $view.Close()
+                  $database.Close()
+                  $version
+              }
+              Write-Host "MSI Product Version: $msiInfo"
+              
+              if ($msiInfo -ne $env:VERSION) {
+                  Write-Error "MSI version mismatch. Expected: $env:VERSION, Got: $msiInfo"
+                  exit 1
+              }
           } else {
               Write-Error "MSI package creation failed"
               exit 1
