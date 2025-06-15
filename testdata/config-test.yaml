@@ -1,0 +1,23 @@
+tls:
+  enabled: false
+  cert_file: ""
+  key_file: ""
+  ca_file: ""
+
+server:
+  host: "localhost"
+  port: 8080
+  jwt_token: "test-jwt-token"
+
+tunnel:
+  local_port: 3389
+  reconnect_delay: 1
+  max_retries: 1
+
+logging:
+  level: "debug"
+  file: "/tmp/cloudbridge-client-test.log"
+  max_size: 1
+  max_backups: 1
+  max_age: 1
+  compress: false 
