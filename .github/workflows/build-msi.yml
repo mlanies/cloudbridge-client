@@ -11,83 +11,92 @@ env:
   CGO_ENABLED: 0
 
 jobs:
-  build-msi:
-    name: Build MSI
+  build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: '1.21'
           cache: true
 
       - name: Install WiX Toolset
         run: |
-          # Download WiX Toolset
-          $url = "https://github.com/wixtoolset/wix3/releases/download/wix3112rtm/wix311.exe"
-          $output = "wix311.exe"
           Write-Host "Downloading WiX Toolset..."
-          Invoke-WebRequest -Uri $url -OutFile $output
+          $wixUrl = "https://github.com/wixtoolset/wix3/releases/download/wix3112rtm/wix311.exe"
+          $wixInstaller = "$env:RUNNER_TEMP\wix311.exe"
+          Invoke-WebRequest -Uri $wixUrl -OutFile $wixInstaller
           
-          # Install WiX Toolset
           Write-Host "Installing WiX Toolset..."
-          Start-Process -FilePath $output -ArgumentList "/quiet" -Wait
+          Start-Process -FilePath $wixInstaller -ArgumentList "/quiet" -Wait
           
-          # Add WiX to PATH
-          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-          $env:Path += ";C:\Program Files (x86)\WiX Toolset v3.11\bin"
+          Write-Host "Updating PATH..."
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
           
-          # Verify installation
           Write-Host "Verifying WiX installation..."
           if (Test-Path "C:\Program Files (x86)\WiX Toolset v3.11\bin\candle.exe") {
               Write-Host "WiX Toolset installed successfully"
           } else {
-              Write-Host "WiX Toolset installation failed"
+              Write-Error "WiX Toolset installation failed"
               exit 1
           }
 
-      - name: Build Windows executable
+      - name: Build Windows Binary
         run: |
-          go build -v -ldflags="-s -w" -o cloudbridge-client.exe ./cmd/cloudbridge-client
+          $env:GOOS = "windows"
+          $env:GOARCH = "amd64"
+          $env:CGO_ENABLED = "1"
+          go build -o cloudbridge-client.exe ./cmd/cloudbridge-client
 
-      - name: Create MSI package
+      - name: Create MSI Package
         run: |
-          # Create directory and copy files
-          New-Item -ItemType Directory -Force -Path msi
-          Copy-Item -Path cloudbridge-client.exe -Destination msi\
-          Copy-Item -Path config\config.yaml -Destination msi\
+          Write-Host "Creating MSI package..."
           
-          # Build MSI
-          Write-Host "Building MSI package..."
-          $env:WIX = "C:\Program Files (x86)\WiX Toolset v3.11"
-          & "$env:WIX\bin\candle.exe" -out "cloudbridge-client.wixobj" "deploy\windows\cloudbridge-client.wxs"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # Create directories
+          New-Item -ItemType Directory -Force -Path "msi\bin"
+          New-Item -ItemType Directory -Force -Path "msi\config"
+          New-Item -ItemType Directory -Force -Path "msi\logs"
           
-          & "$env:WIX\bin\light.exe" -ext WixUIExtension -out "cloudbridge-client.msi" "cloudbridge-client.wixobj"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # Copy files
+          Copy-Item "cloudbridge-client.exe" -Destination "msi\bin\"
+          Copy-Item "config.yaml" -Destination "msi\config\"
+          
+          # Compile WiX source
+          & "C:\Program Files (x86)\WiX Toolset v3.11\bin\candle.exe" -out "msi\CloudBridgeClient.wixobj" "msi\CloudBridgeClient.wxs"
+          if ($LASTEXITCODE -ne 0) {
+              Write-Error "Failed to compile WiX source"
+              exit 1
+          }
+          
+          # Create MSI package
+          & "C:\Program Files (x86)\WiX Toolset v3.11\bin\light.exe" -out "CloudBridgeClient.msi" "msi\CloudBridgeClient.wixobj"
+          if ($LASTEXITCODE -ne 0) {
+              Write-Error "Failed to create MSI package"
+              exit 1
+          }
           
           # Verify MSI was created
-          if (Test-Path "cloudbridge-client.msi") {
+          if (Test-Path "CloudBridgeClient.msi") {
               Write-Host "MSI package created successfully"
           } else {
-              Write-Host "Failed to create MSI package"
+              Write-Error "MSI package creation failed"
               exit 1
           }
 
-      - name: Upload MSI artifact
+      - name: Upload MSI Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: cloudbridge-client.msi
-          path: cloudbridge-client.msi
-          retention-days: 30
+          name: cloudbridge-client-msi
+          path: CloudBridgeClient.msi
+          if-no-files-found: error
 
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
-          files: cloudbridge-client.msi
+          files: CloudBridgeClient.msi
           draft: false
           prerelease: false
           generate_release_notes: true

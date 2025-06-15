@@ -27,10 +27,70 @@ var (
 )
 
 const (
-	defaultConfigPath  = "/etc/cloudbridge-client/config.yaml"
-	defaultLogPath     = "/var/log/cloudbridge-client/client.log"
+	defaultConfigPath  = "C:\\Program Files\\CloudBridge Client\\config.yaml"
+	defaultLogPath     = "C:\\Program Files\\CloudBridge Client\\logs\\client.log"
 	defaultMetricsAddr = ":9090"
 )
+
+type windowsService struct {
+	configPath  string
+	logFilePath string
+	metricsAddr string
+}
+
+func (s *windowsService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
+	changes <- svc.Status{State: svc.StartPending}
+	
+	// Логирование в файл и консоль
+	logFile, err := os.OpenFile(s.logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		log.Fatalf("Failed to open log file: %v", err)
+	}
+	defer logFile.Close()
+
+	// Настройка логирования
+	log.SetOutput(io.MultiWriter(os.Stdout, logFile))
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+
+	// Загрузка конфигурации
+	cfg, err := config.LoadConfig(s.configPath)
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
+
+	// Создание и запуск relay
+	client := relay.NewClient(cfg.TLS.Enabled, nil)
+	if err := client.Connect(cfg.Server.Host, cfg.Server.Port); err != nil {
+		log.Fatalf("Failed to connect to server: %v", err)
+	}
+	defer client.Close()
+
+	// Запуск метрик
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		if err := http.ListenAndServe(s.metricsAddr, nil); err != nil {
+			log.Printf("Failed to start metrics server: %v", err)
+		}
+	}()
+
+	changes <- svc.Status{State: svc.Running, Accepts: svc.AcceptStop | svc.AcceptShutdown}
+
+	for {
+		select {
+		case c := <-r:
+			switch c.Cmd {
+			case svc.Interrogate:
+				changes <- c.CurrentStatus
+			case svc.Stop, svc.Shutdown:
+				changes <- svc.Status{State: svc.StopPending}
+				client.Close()
+				return
+			default:
+				log.Printf("Unexpected control request #%d", c)
+			}
+		}
+	}
+}
 
 func main() {
 	// Parse command line arguments
@@ -44,39 +104,43 @@ func main() {
 	// Check if running as a service
 	isService, err := svc.IsWindowsService()
 	if err != nil {
-		log.Fatalf("Failed to determine if running as service: %v", err)
+		log.Fatalf("Failed to determine if running as a service: %v", err)
 	}
 
 	if isService {
 		// Run as a Windows service
-		err = svc.Run(serviceName, &windowsService{})
+		service := &windowsService{
+			configPath:  *configPath,
+			logFilePath: *logFilePath,
+			metricsAddr: *metricsAddr,
+		}
+		err = svc.Run("CloudBridgeClient", service)
 		if err != nil {
 			log.Fatalf("Service failed: %v", err)
 		}
-		return
-	}
-
-	// Handle service installation/uninstallation
-	if *install {
-		err = installService()
-		if err != nil {
-			log.Fatalf("Failed to install service: %v", err)
+	} else {
+		// Handle service installation/uninstallation
+		if *install {
+			err = installService()
+			if err != nil {
+				log.Fatalf("Failed to install service: %v", err)
+			}
+			fmt.Println("Service installed successfully")
+			return
 		}
-		fmt.Println("Service installed successfully")
-		return
-	}
 
-	if *uninstall {
-		err = uninstallService()
-		if err != nil {
-			log.Fatalf("Failed to uninstall service: %v", err)
+		if *uninstall {
+			err = uninstallService()
+			if err != nil {
+				log.Fatalf("Failed to uninstall service: %v", err)
+			}
+			fmt.Println("Service uninstalled successfully")
+			return
 		}
-		fmt.Println("Service uninstalled successfully")
-		return
-	}
 
-	// Run as a regular application
-	runApplication(*configPath, *logFilePath, *metricsAddr)
+		// Run as a regular application
+		runApplication(*configPath, *logFilePath, *metricsAddr)
+	}
 }
 
 func installService() error {
@@ -127,31 +191,6 @@ func uninstallService() error {
 	defer s.Close()
 
 	return s.Delete()
-}
-
-type windowsService struct{}
-
-func (s *windowsService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
-	changes <- svc.Status{State: svc.StartPending}
-	changes <- svc.Status{State: svc.Running, Accepts: svc.AcceptStop | svc.AcceptShutdown}
-
-	// Start the application in a goroutine
-	go runApplication(defaultConfigPath, defaultLogPath, defaultMetricsAddr)
-
-	for {
-		select {
-		case c := <-r:
-			switch c.Cmd {
-			case svc.Interrogate:
-				changes <- c.CurrentStatus
-			case svc.Stop, svc.Shutdown:
-				changes <- svc.Status{State: svc.StopPending}
-				return
-			default:
-				log.Printf("unexpected control request #%d", c)
-			}
-		}
-	}
 }
 
 func runApplication(configPath, logFilePath, metricsAddr string) {
