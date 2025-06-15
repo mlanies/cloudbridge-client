@@ -1,0 +1,14 @@
+[Unit]
+Description=CloudBridge Client Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/bin/cloudbridge-client
+Restart=always
+RestartSec=5
+Environment=CONFIG_FILE=/etc/cloudbridge-client/config.yaml
+
+[Install]
+WantedBy=multi-user.target 
