@@ -17,14 +17,17 @@ jobs:
           go-version: '1.21'
           cache: true
 
-      - name: Add msbuild to PATH
-        uses: microsoft/setup-msbuild@v1.1
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '6.0.x'
 
       - name: Install WiX
         run: |
-          Write-Host "Installing WiX v4..."
+          Write-Host "Installing WiX v6..."
           dotnet tool install --global wix
           Write-Host "WiX installation completed"
+          wix --version
 
       - name: Build Windows Binary
         run: |
@@ -54,12 +57,15 @@ jobs:
               Set-Content -Path "msi\config\config.yaml" -Value "server:`n  host: localhost`n  port: 8080`n`ntls:`n  enabled: false`n  cert_file: ``"`n  key_file: ``"`n`nlogging:`n  level: info`n  file: client.log" -Encoding UTF8
           }
           
-          Write-Host "Building MSI package with WiX v4..."
-          wix build msi\CloudBridgeClient.wxs -out CloudBridgeClient.msi
+          Write-Host "Building MSI package with WiX v6..."
+          dotnet build msi\CloudBridgeClient.wixproj -c Release
           if ($LASTEXITCODE -ne 0) {
               Write-Error "Failed to create MSI package"
               exit 1
           }
+          
+          # Move MSI to root directory
+          Move-Item -Path "msi\bin\Release\en-us\CloudBridgeClient.msi" -Destination "CloudBridgeClient.msi" -Force
           
           # Verify MSI was created
           if (Test-Path "CloudBridgeClient.msi") {

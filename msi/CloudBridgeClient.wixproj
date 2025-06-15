@@ -1,0 +1,11 @@
+<Project Sdk="WixToolset.Sdk/6.0.0">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <DefineConstants>
+      ProductVersion=1.0.0;
+      ProductName=CloudBridge Client;
+      Manufacturer=2GC;
+      UpgradeCode=PUT-GUID-HERE;
+    </DefineConstants>
+  </PropertyGroup>
+</Project> 
