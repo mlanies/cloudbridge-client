@@ -11,7 +11,7 @@
 - Подробное логирование
 - Проверка системных требований
 - Кроссплатформенная поддержка (Linux, Windows, macOS)
-- Поддержка российских ОС (Astra Linux, Alt Linux, ROSA Linux, RedOS)
+- Поддержка российских ОС (Astra Linux, Alt Linux, ROSA Linux, RedOS) через бинарник для Linux
 
 ## Требования
 
@@ -21,7 +21,7 @@
 
 ## Быстрая установка
 
-### Linux/macOS
+### Linux/macOS/Российские ОС
 
 ```bash
 # Скачать последнюю версию
@@ -33,35 +33,7 @@ sudo mv cloudbridge-client /usr/local/bin/
 go install github.com/2gc-dev/cloudbridge-client/cmd/cloudbridge-client@latest
 ```
 
-### Российские ОС
-
-#### Astra Linux
-```bash
-curl -L https://github.com/2gc-dev/cloudbridge-client/releases/latest/download/cloudbridge-client-astra-amd64 -o cloudbridge-client
-chmod +x cloudbridge-client
-sudo mv cloudbridge-client /usr/local/bin/
-```
-
-#### Alt Linux
-```bash
-curl -L https://github.com/2gc-dev/cloudbridge-client/releases/latest/download/cloudbridge-client-alt-amd64 -o cloudbridge-client
-chmod +x cloudbridge-client
-sudo mv cloudbridge-client /usr/local/bin/
-```
-
-#### ROSA Linux
-```bash
-curl -L https://github.com/2gc-dev/cloudbridge-client/releases/latest/download/cloudbridge-client-rosa-amd64 -o cloudbridge-client
-chmod +x cloudbridge-client
-sudo mv cloudbridge-client /usr/local/bin/
-```
-
-#### RedOS
-```bash
-curl -L https://github.com/2gc-dev/cloudbridge-client/releases/latest/download/cloudbridge-client-redos-amd64 -o cloudbridge-client
-chmod +x cloudbridge-client
-sudo mv cloudbridge-client /usr/local/bin/
-```
+> **Примечание:** Для российских дистрибутивов (Astra Linux, Alt Linux, ROSA Linux, RedOS и др.) используйте бинарник cloudbridge-client-linux-amd64.
 
 ### Windows
 
@@ -82,9 +54,6 @@ make build
 
 # Собрать для всех платформ
 make build-all
-
-# Собрать только для российских ОС
-make build-russian
 ```
 
 ## Usage

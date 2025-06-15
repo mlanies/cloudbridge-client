@@ -22,18 +22,6 @@ jobs:
           - os: macos-latest
             goos: darwin
             artifact_name: cloudbridge-client-darwin-amd64
-          - os: astra-latest
-            goos: linux
-            artifact_name: cloudbridge-client-astra-amd64
-          - os: alt-latest
-            goos: linux
-            artifact_name: cloudbridge-client-alt-amd64
-          - os: rosa-latest
-            goos: linux
-            artifact_name: cloudbridge-client-rosa-amd64
-          - os: redos-latest
-            goos: linux
-            artifact_name: cloudbridge-client-redos-amd64
 
     steps:
     - name: Set up Go
@@ -87,9 +75,5 @@ jobs:
           artifacts/cloudbridge-client-linux-amd64
           artifacts/cloudbridge-client-windows-amd64.exe
           artifacts/cloudbridge-client-darwin-amd64
-          artifacts/cloudbridge-client-astra-amd64
-          artifacts/cloudbridge-client-alt-amd64
-          artifacts/cloudbridge-client-rosa-amd64
-          artifacts/cloudbridge-client-redos-amd64
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
