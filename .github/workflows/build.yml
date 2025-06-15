@@ -4,8 +4,7 @@ on:
   push:
     tags:
       - 'v*'
-  pull_request:
-    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -53,35 +52,41 @@ jobs:
       run: |
         GOOS=${{ matrix.goos }} \
         GOARCH=amd64 \
-        go build -v -ldflags "-X main.Version=${VERSION}" -o bin/${{ matrix.artifact_name }} ./cmd/cloudbridge-client
+        go build -v -ldflags "-X main.Version=${VERSION}" -o ${{ matrix.artifact_name }} ./cmd/cloudbridge-client
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.artifact_name }}
-        path: bin/${{ matrix.artifact_name }}
+        path: ${{ matrix.artifact_name }}
 
   release:
     name: Release
     needs: build
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
     - name: Download all artifacts
       uses: actions/download-artifact@v4
+      with:
+        path: artifacts
 
     - name: Create Release
+      id: create_release
       uses: softprops/action-gh-release@v1
       with:
-        files: |
-          cloudbridge-client-linux-amd64
-          cloudbridge-client-windows-amd64.exe
-          cloudbridge-client-darwin-amd64
-          cloudbridge-client-astra-amd64
-          cloudbridge-client-alt-amd64
-          cloudbridge-client-rosa-amd64
-          cloudbridge-client-redos-amd64
+        name: Release ${{ github.ref_name }}
         draft: false
         prerelease: false
+        files: |
+          artifacts/cloudbridge-client-linux-amd64
+          artifacts/cloudbridge-client-windows-amd64.exe
+          artifacts/cloudbridge-client-darwin-amd64
+          artifacts/cloudbridge-client-astra-amd64
+          artifacts/cloudbridge-client-alt-amd64
+          artifacts/cloudbridge-client-rosa-amd64
+          artifacts/cloudbridge-client-redos-amd64
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
