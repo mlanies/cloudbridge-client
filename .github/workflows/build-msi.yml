@@ -36,11 +36,11 @@ jobs:
 
       - name: Create MSI package
         run: |
-          mkdir msi
-          copy cloudbridge-client.exe msi\
-          copy config\config.yaml msi\
-          "C:\Program Files (x86)\WiX Toolset v3.11\bin\candle.exe" deploy\windows\cloudbridge-client.wxs
-          "C:\Program Files (x86)\WiX Toolset v3.11\bin\light.exe" -ext WixUIExtension cloudbridge-client.wixobj -out cloudbridge-client.msi
+          New-Item -ItemType Directory -Force -Path msi
+          Copy-Item -Path cloudbridge-client.exe -Destination msi\
+          Copy-Item -Path config\config.yaml -Destination msi\
+          & "C:\Program Files (x86)\WiX Toolset v3.11\bin\candle.exe" -out "cloudbridge-client.wixobj" "deploy\windows\cloudbridge-client.wxs"
+          & "C:\Program Files (x86)\WiX Toolset v3.11\bin\light.exe" -ext WixUIExtension -out "cloudbridge-client.msi" "cloudbridge-client.wixobj"
 
       - name: Upload MSI artifact
         uses: actions/upload-artifact@v4
