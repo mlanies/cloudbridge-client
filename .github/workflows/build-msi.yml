@@ -51,21 +51,7 @@ jobs:
               Copy-Item "config\config.yaml" -Destination "msi\config\"
           } else {
               Write-Host "Creating default config file..."
-              $configContent = @"
-server:
-  host: "localhost"
-  port: 8080
-
-tls:
-  enabled: false
-  cert_file: ""
-  key_file: ""
-
-logging:
-  level: "info"
-  file: "client.log"
-"@
-              $configContent | Out-File -FilePath "msi\config\config.yaml" -Encoding UTF8
+              Set-Content -Path "msi\config\config.yaml" -Value "server:`n  host: localhost`n  port: 8080`n`ntls:`n  enabled: false`n  cert_file: ``"`n  key_file: ``"`n`nlogging:`n  level: info`n  file: client.log" -Encoding UTF8
           }
           
           Write-Host "Building MSI package with WiX v4..."
