@@ -2,6 +2,7 @@
 cloudbridge-client
 cloudbridge-server
 relay-server
+cmd/cloudbridge-client/cloudbridge-client
 
 # Временные файлы и директории
 /tmp
@@ -23,4 +24,4 @@ relay-server
 
 # Файлы конфигурации (опционально, если не нужно хранить в репозитории)
 # /config/*.yaml
-# /config/*.yml 
+# /config/*.yml
