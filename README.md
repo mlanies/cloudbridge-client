@@ -20,27 +20,16 @@
 ## Быстрая установка
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/twogc/cloudbridge-client-installer/main/install.sh | sudo bash
+go install github.com/yourusername/cloudbridge-client/cmd/cloudbridge-client@latest
 ```
 
-## Ручная установка
+### Pre-built Binaries
 
-1. Скачайте установщик:
-```bash
-curl -O https://raw.githubusercontent.com/twogc/cloudbridge-client-installer/main/install.sh
-```
+Download the appropriate binary for your platform from the releases page.
 
-2. Сделайте его исполняемым:
-```bash
-chmod +x install.sh
-```
+## Usage
 
-3. Запустите установку:
-```bash
-sudo ./install.sh
-```
-
-## Опции установки
+### Basic Usage
 
 ```bash
 Usage: install.sh [options]
@@ -107,7 +96,9 @@ sudo ./install.sh
 Для обновления до конкретной версии:
 
 ```bash
-sudo ./install.sh --client-version 1.1.0
+git clone https://github.com/yourusername/cloudbridge-client.git
+cd cloudbridge-client
+go build -o cloudbridge-client ./cmd/cloudbridge-client
 ```
 
 ## Удаление
@@ -115,17 +106,16 @@ sudo ./install.sh --client-version 1.1.0
 Для удаления клиента:
 
 ```bash
-sudo systemctl stop cloudbridge-client
-sudo systemctl disable cloudbridge-client
-sudo rm /etc/systemd/system/cloudbridge-client.service
-sudo rm -rf /etc/cloudbridge-client
-sudo rm -rf /var/lib/cloudbridge-client
-sudo rm -rf /var/log/cloudbridge-client
-sudo rm /usr/local/bin/cloudbridge-client
-sudo userdel cloudbridge-client
-sudo systemctl daemon-reload
+# Windows
+GOOS=windows GOARCH=amd64 go build -o cloudbridge-client.exe ./cmd/cloudbridge-client
+
+# Linux
+GOOS=linux GOARCH=amd64 go build -o cloudbridge-client ./cmd/cloudbridge-client
+
+# macOS
+GOOS=darwin GOARCH=amd64 go build -o cloudbridge-client ./cmd/cloudbridge-client
 ```
 
-## Лицензия
+## License
 
-MIT License 
+This project is licensed under the MIT License - see the LICENSE file for details. 

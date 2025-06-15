@@ -1,4 +1,4 @@
-module github.com/yourusername/cloudbridge-client
+module github.com/2gc-dev/cloudbridge-client
 
 go 1.21
 
