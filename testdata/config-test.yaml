@@ -5,12 +5,13 @@ tls:
   ca_file: ""
 
 server:
-  host: "localhost"
+  host: "edge.2gc.ru"
   port: 8080
   jwt_token: "test-jwt-token"
 
 tunnel:
-  local_port: 3389
+  # local_port может быть любым, например 22 (SSH) или любой, который укажет сотрудник
+  local_port: 22
   reconnect_delay: 1
   max_retries: 1
 
