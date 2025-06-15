@@ -43,8 +43,29 @@ jobs:
           New-Item -ItemType Directory -Force -Path "msi\logs"
           
           # Copy files
+          Write-Host "Copying executable..."
           Copy-Item "cloudbridge-client.exe" -Destination "msi\bin\"
-          Copy-Item "config.yaml" -Destination "msi\config\"
+          
+          Write-Host "Copying config file..."
+          if (Test-Path "config\config.yaml") {
+              Copy-Item "config\config.yaml" -Destination "msi\config\"
+          } else {
+              Write-Host "Creating default config file..."
+              @"
+server:
+  host: "localhost"
+  port: 8080
+
+tls:
+  enabled: false
+  cert_file: ""
+  key_file: ""
+
+logging:
+  level: "info"
+  file: "client.log"
+"@ | Out-File -FilePath "msi\config\config.yaml" -Encoding UTF8
+          }
           
           Write-Host "Building MSI package with WiX v4..."
           wix build msi\CloudBridgeClient.wxs -out CloudBridgeClient.msi
