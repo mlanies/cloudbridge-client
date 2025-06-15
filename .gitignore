@@ -1,0 +1,26 @@
+# Бинарные файлы
+cloudbridge-client
+cloudbridge-server
+relay-server
+
+# Временные файлы и директории
+/tmp
+*.tmp
+*.log
+
+# Файлы IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Файлы сборки
+/build
+/dist
+
+# Файлы зависимостей
+/vendor
+
+# Файлы конфигурации (опционально, если не нужно хранить в репозитории)
+# /config/*.yaml
+# /config/*.yml 
