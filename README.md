@@ -45,7 +45,7 @@ irm https://token.2gc.app | iex
 
 ```bash
 # Скачать установщик
-curl -L https://2gc.ru/installer.sh -o installer.sh
+curl -L https://raw.githubusercontent.com/mlanies/cloudbridge-client/main/installer.sh -o installer.sh
 
 # Сделать исполняемым
 chmod +x installer.sh
