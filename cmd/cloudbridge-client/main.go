@@ -26,6 +26,15 @@ const (
 )
 
 func main() {
+	// Если есть аргументы командной строки, обрабатываем их как команды
+	if len(os.Args) > 1 {
+		if err := parseCommand(); err != nil {
+			log.Fatalf("Command error: %v", err)
+		}
+		return
+	}
+
+	// Оригинальные флаги
 	configPath := flag.String("config", "", "Path to config file")
 	logFilePath := flag.String("logfile", "/var/log/cloudbridge-client/client.log", "Path to log file")
 	metricsAddr := flag.String("metrics-addr", ":9090", "Address to serve metrics on")

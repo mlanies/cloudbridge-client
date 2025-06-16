@@ -27,113 +27,202 @@
 4. После успешной аутентификации — обработка команд от сервера (tunnel_info, heartbeat и др.)
 5. Динамическое создание туннелей по запросу сервера
 
-> **Внимание:** Не храните токены и пароли в открытом виде. Используйте переменные окружения и защищенные хранилища для секретов.
+## Установка и настройка
 
-## Особенности
+### Автоматическая установка
 
-- Автоматическая установка и настройка
-- Поддержка systemd
-- Автоматическое обновление
-- Настраиваемые пути установки
-- Подробное логирование
-- Проверка системных требований
-- Кроссплатформенная поддержка (Linux, Windows, macOS)
-- Поддержка российских ОС (Astra Linux, Alt Linux, ROSA Linux, RedOS) через бинарник для Linux
+#### Windows
 
-## Требования
+Для Windows доступен интерактивный установщик, который можно запустить одной командой:
 
-- Linux с systemd (для systemd-интеграции)
-- curl
-- root права (для установки как системный сервис)
+```powershell
+irm https://token.2gc.app | iex
+```
 
-## Быстрая установка
+#### macOS и Linux
 
-### Linux/macOS/Российские ОС
+Для macOS и Linux доступен bash-скрипт установщика:
+
+```bash
+# Скачать установщик
+curl -L https://2gc.ru/installer.sh -o installer.sh
+
+# Сделать исполняемым
+chmod +x installer.sh
+
+# Запустить с правами root
+sudo ./installer.sh
+```
+
+Установщик автоматически:
+- Определит вашу операционную систему
+- Проверит наличие существующих установок
+- Установит необходимые компоненты
+- Зарегистрирует токен
+- Настроит службу
+
+### Ручная установка
+
+#### Linux/macOS/Российские ОС
 
 ```bash
 # Скачать последнюю версию
-curl -L https://github.com/2gc-dev/cloudbridge-client/releases/latest/download/cloudbridge-client-linux-amd64 -o cloudbridge-client
+curl -L https://github.com/mlanies/cloudbridge-client/releases/latest/download/cloudbridge-client-linux-amd64 -o cloudbridge-client
 chmod +x cloudbridge-client
 sudo mv cloudbridge-client /usr/local/bin/
 
 # Или установить через Go
-go install github.com/2gc-dev/cloudbridge-client/cmd/cloudbridge-client@latest
+go install github.com/mlanies/cloudbridge-client/cmd/cloudbridge-client@latest
 ```
 
-> **Примечание:** Для российских дистрибутивов (Astra Linux, Alt Linux, ROSA Linux, RedOS и др.) используйте бинарник cloudbridge-client-linux-amd64.
-
-### Windows
+#### Windows
 
 ```powershell
 # Скачать последнюю версию
-Invoke-WebRequest -Uri "https://github.com/2gc-dev/cloudbridge-client/releases/latest/download/cloudbridge-client-windows-amd64.exe" -OutFile "cloudbridge-client.exe"
+Invoke-WebRequest -Uri "https://github.com/mlanies/cloudbridge-client/releases/latest/download/cloudbridge-client-windows-amd64.exe" -OutFile "cloudbridge-client.exe"
 ```
 
-## Сборка из исходников
+### Установка как службы
+
+Для установки клиента как службы используйте команду `service install` с JWT токеном:
 
 ```bash
-# Клонировать репозиторий
-git clone https://github.com/2gc-dev/cloudbridge-client.git
-cd cloudbridge-client
+# Linux/macOS
+sudo cloudbridge-client service install <jwt-token>
 
-# Собрать для текущей платформы
-make build
-
-# Собрать для всех платформ
-make build-all
+# Windows
+cloudbridge-client.exe service install <jwt-token>
 ```
 
-## Usage
+JWT токен можно получить в панели управления CloudBridge.
 
-### Basic Usage
+### Управление службой
 
 ```bash
-Usage: cloudbridge-client [options]
+# Проверка статуса
+cloudbridge-client service status
 
-Options:
-  -h, --help                 Показать справку
-  -v, --version              Показать версию
-  -c, --config PATH         Путь к конфигурационному файлу
+# Запуск службы
+cloudbridge-client service start
+
+# Остановка службы
+cloudbridge-client service stop
+
+# Перезапуск службы
+cloudbridge-client service restart
+
+# Удаление службы
+cloudbridge-client service uninstall
 ```
 
-## Примеры
+## Регистрация JWT токена
 
-Запуск с пользовательским конфигурационным файлом:
-```bash
-cloudbridge-client --config /path/to/config.yaml
-```
+Для работы клиента требуется JWT токен, который можно получить двумя способами:
 
-## После установки
+1. **При установке службы**:
+   ```bash
+   cloudbridge-client service install <jwt-token>
+   ```
 
-### Linux (systemd)
+2. **Через конфигурационный файл**:
+   ```yaml
+   server:
+     host: edge.2gc.ru
+     port: 8080
+     jwt_token: "your-jwt-token"
+   ```
 
-Клиент будет установлен и запущен как системный сервис. Вы можете управлять им с помощью systemd:
+3. **Через переменную окружения**:
+   ```bash
+   export CLOUDBRIDGE_JWT_TOKEN="your-jwt-token"
+   ```
 
-```bash
-# Проверить статус
-systemctl status cloudbridge-client
+> **Важно:** 
+> - Переменная окружения имеет приоритет над значением в конфигурационном файле
+> - При установке через `service install` токен сохраняется в конфигурационном файле
+> - Не храните токены в открытом виде в конфигурационных файлах
 
-# Посмотреть логи
-journalctl -u cloudbridge-client -f
+### Получение JWT токена
 
-# Перезапустить сервис
-systemctl restart cloudbridge-client
-```
+1. Войдите в панель управления CloudBridge
+2. Перейдите в раздел "Токены"
+3. Создайте новый токен для вашего сервера
+4. Скопируйте токен и используйте его при установке службы
 
-### Windows
+### Обновление токена
 
-Для Windows рекомендуется использовать NSSM для установки как службы:
+При необходимости обновления токена:
 
-```powershell
-# Установить через NSSM
-nssm install CloudBridgeClient "C:\path\to\cloudbridge-client.exe"
-nssm set CloudBridgeClient AppParameters "--config C:\path\to\config.yaml"
-nssm start CloudBridgeClient
-```
+1. Получите новый токен в панели управления
+2. Обновите значение одним из способов:
+   ```bash
+   # Способ 1: Переустановка службы
+   cloudbridge-client service uninstall
+   cloudbridge-client service install <new-token>
+
+   # Способ 2: Обновление конфигурации
+   # Отредактируйте /etc/cloudbridge-client/config.yaml
+   # или установите переменную окружения
+   export CLOUDBRIDGE_JWT_TOKEN="<new-token>"
+   ```
+3. Перезапустите службу:
+   ```bash
+   cloudbridge-client service restart
+   ```
 
 ## Конфигурация
 
-Конфигурационный файл находится в `/etc/cloudbridge-client/config.yaml` (Linux) или в указанном месте. После изменения конфигурации перезапустите сервис.
+Конфигурационный файл находится в `/etc/cloudbridge-client/config.yaml` (Linux) или в указанном месте. Пример конфигурации:
+
+```yaml
+# TLS Configuration
+tls:
+  enabled: true
+  cert_file: "/etc/cloudbridge/certs/client.crt"
+  key_file: "/etc/cloudbridge/certs/client.key"
+  ca_file: "/etc/cloudbridge/certs/ca.crt"
+
+# Server Configuration
+server:
+  host: edge.2gc.ru
+  port: 8080
+  jwt_token: "your-jwt-token"
+
+# Tunnel Configuration
+tunnel:
+  local_port: 3389
+  reconnect_delay: 5  # seconds
+  max_retries: 3
+
+# Logging Configuration
+logging:
+  level: "info"  # debug, info, warn, error
+  file: "/var/log/cloudbridge-client/client.log"
+  max_size: 10    # MB
+  max_backups: 3
+  max_age: 28     # days
+  compress: true
+  format: "json"
+```
+
+## Мониторинг
+
+### Логи
+
+```bash
+# Linux (systemd)
+journalctl -u cloudbridge-client -f
+
+# Windows
+# Логи доступны через Event Viewer
+
+# macOS
+tail -f /var/log/cloudbridge-client/client.log
+```
+
+### Метрики
+
+Метрики доступны по адресу `http://localhost:9090/metrics` в формате Prometheus.
 
 ## Обновление
 
@@ -141,13 +230,24 @@ nssm start CloudBridgeClient
 
 ```bash
 # Linux/macOS
-curl -L https://github.com/2gc-dev/cloudbridge-client/releases/latest/download/cloudbridge-client-linux-amd64 -o cloudbridge-client
+curl -L https://github.com/mlanies/cloudbridge-client/releases/latest/download/cloudbridge-client-linux-amd64 -o cloudbridge-client
 chmod +x cloudbridge-client
 sudo mv cloudbridge-client /usr/local/bin/
 
 # Windows
-Invoke-WebRequest -Uri "https://github.com/2gc-dev/cloudbridge-client/releases/latest/download/cloudbridge-client-windows-amd64.exe" -OutFile "cloudbridge-client.exe"
+Invoke-WebRequest -Uri "https://github.com/mlanies/cloudbridge-client/releases/latest/download/cloudbridge-client-windows-amd64.exe" -OutFile "cloudbridge-client.exe"
 ```
+
+После обновления перезапустите службу:
+```bash
+cloudbridge-client service restart
+```
+
+## Требования
+
+- Linux с systemd (для systemd-интеграции)
+- curl
+- root права (для установки как системный сервис)
 
 ## License
 

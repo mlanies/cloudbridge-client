@@ -37,6 +37,20 @@ type Config struct {
 	} `yaml:"logging"`
 }
 
+// Save сохраняет конфигурацию в файл
+func (c *Config) Save(path string) error {
+	data, err := yaml.Marshal(c)
+	if err != nil {
+		return fmt.Errorf("error marshaling config: %v", err)
+	}
+
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("error writing config file: %v", err)
+	}
+
+	return nil
+}
+
 func LoadConfig(configPath string) (*Config, error) {
 	// If no config path is provided, try default locations
 	if configPath == "" {
@@ -58,6 +72,11 @@ func LoadConfig(configPath string) (*Config, error) {
 		return nil, fmt.Errorf("error parsing config file: %v", err)
 	}
 
+	// Проверяем токен в переменной окружения
+	if envToken := os.Getenv("CLOUDBRIDGE_JWT_TOKEN"); envToken != "" {
+		config.Server.JWTToken = envToken
+	}
+
 	// Validate config
 	if err := config.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid config: %v", err)
@@ -72,6 +91,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Server.Port <= 0 || c.Server.Port > 65535 {
 		return fmt.Errorf("invalid server port")
+	}
+	if c.Server.JWTToken == "" {
+		return fmt.Errorf("JWT token is required (set in config or CLOUDBRIDGE_JWT_TOKEN environment variable)")
 	}
 	if c.Tunnel.LocalPort <= 0 || c.Tunnel.LocalPort > 65535 {
 		return fmt.Errorf("invalid local port")
