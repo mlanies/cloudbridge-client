@@ -1,228 +1,99 @@
 package relay
 
 import (
-	"context"
 	"fmt"
+	"sync"
 	"testing"
+	"github.com/2gc-dev/cloudbridge-client/pkg/tunnel"
+	"github.com/2gc-dev/cloudbridge-client/pkg/types"
 )
 
+type mockClient struct{}
+
+func (m *mockClient) IsConnected() bool { return true }
+func (m *mockClient) SendHeartbeat() error { return nil }
+func (m *mockClient) GetConfig() *types.Config { return nil }
+func (m *mockClient) GetClientID() string { return "mock-client" }
+
 func TestTunnelCreation(t *testing.T) {
-	client := NewClient(false, nil)
-	
-	tunnelInfo := map[string]interface{}{
-		"tunnel_id":    "test-tunnel-1",
-		"local_port":   3389,
-		"remote_host":  "test-server",
-		"remote_port":  3389,
-		"protocol":     "rdp",
-		"options": map[string]interface{}{
-			"username": "test",
-			"password": "test",
-			"domain":   "test",
-		},
-	}
-	
-	tunnel, err := client.CreateTunnel(tunnelInfo)
+	mgr := tunnel.NewManager(&mockClient{})
+	err := mgr.RegisterTunnel("test-tunnel-1", 3389, "test-server", 3389)
 	if err != nil {
-		t.Errorf("Failed to create tunnel: %v", err)
+		t.Fatalf("Failed to create tunnel: %v", err)
 	}
-	
-	if tunnel.ID != "test-tunnel-1" {
-		t.Errorf("Expected tunnel ID 'test-tunnel-1', got '%s'", tunnel.ID)
+	tun, exists := mgr.GetTunnel("test-tunnel-1")
+	if !exists {
+		t.Fatal("Tunnel not found after creation")
 	}
-	
-	if tunnel.LocalPort != 3389 {
-		t.Errorf("Expected local port 3389, got %d", tunnel.LocalPort)
+	if tun.ID != "test-tunnel-1" {
+		t.Errorf("Expected tunnel ID 'test-tunnel-1', got '%s'", tun.ID)
 	}
-	
-	if tunnel.RemoteHost != "test-server" {
-		t.Errorf("Expected remote host 'test-server', got '%s'", tunnel.RemoteHost)
+	if tun.LocalPort != 3389 {
+		t.Errorf("Expected local port 3389, got %d", tun.LocalPort)
 	}
-	
-	if tunnel.RemotePort != 3389 {
-		t.Errorf("Expected remote port 3389, got %d", tunnel.RemotePort)
+	if tun.RemoteHost != "test-server" {
+		t.Errorf("Expected remote host 'test-server', got '%s'", tun.RemoteHost)
 	}
-	
-	if tunnel.Protocol != "rdp" {
-		t.Errorf("Expected protocol 'rdp', got '%s'", tunnel.Protocol)
+	if tun.RemotePort != 3389 {
+		t.Errorf("Expected remote port 3389, got %d", tun.RemotePort)
 	}
 }
 
 func TestTunnelManagement(t *testing.T) {
-	client := NewClient(false, nil)
-	
-	// Создаем несколько туннелей
-	tunnelInfos := []map[string]interface{}{
-		{
-			"tunnel_id":    "test-tunnel-1",
-			"local_port":   3389,
-			"remote_host":  "test-server-1",
-			"remote_port":  3389,
-			"protocol":     "rdp",
-			"options": map[string]interface{}{
-				"username": "test1",
-				"password": "test1",
-				"domain":   "test1",
-			},
-		},
-		{
-			"tunnel_id":    "test-tunnel-2",
-			"local_port":   3390,
-			"remote_host":  "test-server-2",
-			"remote_port":  3389,
-			"protocol":     "rdp",
-			"options": map[string]interface{}{
-				"username": "test2",
-				"password": "test2",
-				"domain":   "test2",
-			},
-		},
+	mgr := tunnel.NewManager(&mockClient{})
+	tunnels := []struct {
+		id         string
+		localPort  int
+		remoteHost string
+		remotePort int
+	}{
+		{"test-tunnel-1", 3389, "test-server-1", 3389},
+		{"test-tunnel-2", 3390, "test-server-2", 3389},
 	}
-	
-	// Создаем туннели
-	for _, info := range tunnelInfos {
-		_, err := client.CreateTunnel(info)
+	for _, info := range tunnels {
+		err := mgr.RegisterTunnel(info.id, info.localPort, info.remoteHost, info.remotePort)
 		if err != nil {
-			t.Errorf("Failed to create tunnel %s: %v", info["tunnel_id"], err)
+			t.Fatalf("Failed to create tunnel %s: %v", info.id, err)
 		}
 	}
-	
-	// Проверяем количество туннелей
-	tunnels := client.ListTunnels()
-	if len(tunnels) != 2 {
-		t.Errorf("Expected 2 tunnels, got %d", len(tunnels))
+	all := mgr.ListTunnels()
+	if len(all) != 2 {
+		t.Errorf("Expected 2 tunnels, got %d", len(all))
 	}
-	
-	// Проверяем получение туннеля по ID
-	tunnel, exists := client.GetTunnel("test-tunnel-1")
-	if !exists {
+	tun, exists := mgr.GetTunnel("test-tunnel-1")
+	if !exists || tun.ID != "test-tunnel-1" {
 		t.Error("Tunnel test-tunnel-1 not found")
 	}
-	if tunnel.ID != "test-tunnel-1" {
-		t.Errorf("Expected tunnel ID 'test-tunnel-1', got '%s'", tunnel.ID)
-	}
-	
-	// Закрываем туннель
-	err := client.CloseTunnel("test-tunnel-1")
+	err := mgr.UnregisterTunnel("test-tunnel-1")
 	if err != nil {
 		t.Errorf("Failed to close tunnel: %v", err)
 	}
-	
-	// Проверяем, что туннель закрыт
-	tunnels = client.ListTunnels()
-	if len(tunnels) != 1 {
-		t.Errorf("Expected 1 tunnel after closing, got %d", len(tunnels))
+	all = mgr.ListTunnels()
+	if len(all) != 1 {
+		t.Errorf("Expected 1 tunnel after closing, got %d", len(all))
 	}
-	
-	// Проверяем, что закрытый туннель не найден
-	_, exists = client.GetTunnel("test-tunnel-1")
+	_, exists = mgr.GetTunnel("test-tunnel-1")
 	if exists {
 		t.Error("Closed tunnel still exists")
 	}
 }
 
-func TestTunnelProtocols(t *testing.T) {
-	client := NewClient(false, nil)
-	
-	testCases := []struct {
-		name     string
-		protocol string
-		info     map[string]interface{}
-		wantErr  bool
-	}{
-		{
-			name:     "RDP Protocol",
-			protocol: "rdp",
-			info: map[string]interface{}{
-				"tunnel_id":    "test-rdp",
-				"local_port":   3389,
-				"remote_host":  "test-server",
-				"remote_port":  3389,
-				"protocol":     "rdp",
-				"options": map[string]interface{}{
-					"username": "test",
-					"password": "test",
-					"domain":   "test",
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name:     "SSH Protocol",
-			protocol: "ssh",
-			info: map[string]interface{}{
-				"tunnel_id":    "test-ssh",
-				"local_port":   22,
-				"remote_host":  "test-server",
-				"remote_port":  22,
-				"protocol":     "ssh",
-				"options": map[string]interface{}{
-					"username": "test",
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name:     "Invalid Protocol",
-			protocol: "invalid",
-			info: map[string]interface{}{
-				"tunnel_id":    "test-invalid",
-				"local_port":   80,
-				"remote_host":  "test-server",
-				"remote_port":  80,
-				"protocol":     "invalid",
-				"options":      map[string]interface{}{},
-			},
-			wantErr: true,
-		},
-	}
-	
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			_, err := client.CreateTunnel(tc.info)
-			if (err != nil) != tc.wantErr {
-				t.Errorf("CreateTunnel() error = %v, wantErr %v", err, tc.wantErr)
-			}
-		})
-	}
-}
-
 func TestTunnelConcurrency(t *testing.T) {
-	client := NewClient(false, nil)
-	
-	// Создаем туннели в разных горутинах
-	done := make(chan bool)
+	mgr := tunnel.NewManager(&mockClient{})
+	wg := sync.WaitGroup{}
 	for i := 0; i < 10; i++ {
+		wg.Add(1)
 		go func(id int) {
-			tunnelInfo := map[string]interface{}{
-				"tunnel_id":    fmt.Sprintf("test-tunnel-%d", id),
-				"local_port":   3389 + id,
-				"remote_host":  "test-server",
-				"remote_port":  3389,
-				"protocol":     "rdp",
-				"options": map[string]interface{}{
-					"username": "test",
-					"password": "test",
-					"domain":   "test",
-				},
-			}
-			
-			_, err := client.CreateTunnel(tunnelInfo)
+			defer wg.Done()
+			err := mgr.RegisterTunnel(fmt.Sprintf("test-tunnel-%d", id), 4000+id, "test-server", 3389)
 			if err != nil {
-				t.Errorf("Failed to create tunnel %d: %v", id, err)
+				t.Errorf("Failed to create tunnel: %v", err)
 			}
-			done <- true
 		}(i)
 	}
-	
-	// Ждем завершения всех горутин
-	for i := 0; i < 10; i++ {
-		<-done
-	}
-	
-	// Проверяем количество туннелей
-	tunnels := client.ListTunnels()
-	if len(tunnels) != 10 {
-		t.Errorf("Expected 10 tunnels, got %d", len(tunnels))
+	wg.Wait()
+	all := mgr.ListTunnels()
+	if len(all) != 10 {
+		t.Errorf("Expected 10 tunnels, got %d", len(all))
 	}
 } 

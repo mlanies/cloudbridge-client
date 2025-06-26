@@ -44,6 +44,7 @@ type KeycloakConfig struct {
 	ServerURL string `mapstructure:"server_url"`
 	Realm     string `mapstructure:"realm"`
 	ClientID  string `mapstructure:"client_id"`
+	JWKSURL   string `mapstructure:"jwks_url"`
 }
 
 // RateLimitingConfig contains rate limiting settings
