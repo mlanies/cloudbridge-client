@@ -70,6 +70,21 @@ type Tunnel struct {
 	LastUsed   time.Time
 	BufferMgr  *BufferManager
 	Stats      *TunnelStats
+	mu         sync.RWMutex // Mutex for Active field
+}
+
+// IsActive safely checks if tunnel is active
+func (t *Tunnel) IsActive() bool {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.Active
+}
+
+// SetActive safely sets tunnel active status
+func (t *Tunnel) SetActive(active bool) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.Active = active
 }
 
 // TunnelStats represents tunnel statistics
@@ -162,12 +177,12 @@ func (m *Manager) RegisterTunnel(tunnelID string, localPort int, remoteHost stri
 		LocalPort:  localPort,
 		RemoteHost: remoteHost,
 		RemotePort: remotePort,
-		Active:     true,
 		CreatedAt:  time.Now(),
 		LastUsed:   time.Now(),
 		BufferMgr:  NewBufferManager(4096, 100),
 		Stats:      NewTunnelStats(),
 	}
+	tunnel.SetActive(true)
 
 	m.tunnels[tunnelID] = tunnel
 
@@ -187,7 +202,7 @@ func (m *Manager) UnregisterTunnel(tunnelID string) error {
 		return fmt.Errorf("tunnel %s not found", tunnelID)
 	}
 
-	tunnel.Active = false
+	tunnel.SetActive(false)
 	delete(m.tunnels, tunnelID)
 
 	return nil
@@ -244,7 +259,7 @@ func (m *Manager) validateTunnelParams(localPort int, remoteHost string, remoteP
 func (m *Manager) isPortInUse(port int) bool {
 	// Check if any existing tunnel uses this port
 	for _, tunnel := range m.tunnels {
-		if tunnel.LocalPort == port && tunnel.Active {
+		if tunnel.LocalPort == port && tunnel.IsActive() {
 			return true
 		}
 	}
@@ -271,11 +286,11 @@ func (m *Manager) startTunnelProxy(tunnel *Tunnel) {
 	fmt.Printf("Tunnel %s started: localhost:%d -> %s:%d\n", 
 		tunnel.ID, tunnel.LocalPort, tunnel.RemoteHost, tunnel.RemotePort)
 
-	for tunnel.Active {
+	for tunnel.IsActive() {
 		// Accept local connection
 		localConn, err := listener.Accept()
 		if err != nil {
-			if tunnel.Active {
+			if tunnel.IsActive() {
 				fmt.Printf("Failed to accept connection for tunnel %s: %v\n", tunnel.ID, err)
 			}
 			continue
@@ -361,7 +376,7 @@ func (m *Manager) GetTunnelStats() map[string]interface{} {
 	
 	activeCount := 0
 	for _, tunnel := range m.tunnels {
-		if tunnel.Active {
+		if tunnel.IsActive() {
 			activeCount++
 		}
 	}
