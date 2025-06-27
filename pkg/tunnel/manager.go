@@ -14,7 +14,6 @@ type BufferManager struct {
 	BufferSize int
 	MaxBuffers int
 	BufferPool chan []byte
-	mu         sync.RWMutex
 }
 
 // NewBufferManager creates a new buffer manager
@@ -267,9 +266,12 @@ func (m *Manager) isPortInUse(port int) bool {
 	// Check if port is actually in use by trying to bind to it
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
+		_ = err // Игнорируем ошибку закрытия при проверке порта
 		return true
 	}
-	ln.Close()
+	if err := ln.Close(); err != nil {
+		_ = err // Игнорируем ошибку закрытия при проверке порта
+	}
 	return false
 }
 
@@ -281,7 +283,7 @@ func (m *Manager) startTunnelProxy(tunnel *Tunnel) {
 		fmt.Printf("Failed to start tunnel %s: %v\n", tunnel.ID, err)
 		return
 	}
-	defer listener.Close()
+	defer func() { if err := listener.Close(); err != nil { fmt.Printf("Failed to close listener for tunnel %s: %v\n", tunnel.ID, err) } }()
 
 	fmt.Printf("Tunnel %s started: localhost:%d -> %s:%d\n",
 		tunnel.ID, tunnel.LocalPort, tunnel.RemoteHost, tunnel.RemotePort)
@@ -303,7 +305,11 @@ func (m *Manager) startTunnelProxy(tunnel *Tunnel) {
 
 // handleTunnelConnection handles a single tunnel connection
 func (m *Manager) handleTunnelConnection(tunnel *Tunnel, localConn net.Conn) {
-	defer localConn.Close()
+	defer func() {
+		if err := localConn.Close(); err != nil {
+			fmt.Printf("Failed to close local connection for tunnel %s: %v\n", tunnel.ID, err)
+		}
+	}()
 
 	// Update last used time and increment connection count
 	tunnel.LastUsed = time.Now()
@@ -316,7 +322,7 @@ func (m *Manager) handleTunnelConnection(tunnel *Tunnel, localConn net.Conn) {
 		fmt.Printf("Failed to connect to remote host for tunnel %s: %v\n", tunnel.ID, err)
 		return
 	}
-	defer remoteConn.Close()
+	defer func() { if err := remoteConn.Close(); err != nil { fmt.Printf("Failed to close remote connection for tunnel %s: %v\n", tunnel.ID, err) } }()
 
 	// Start bidirectional data transfer
 	done := make(chan bool, 2)

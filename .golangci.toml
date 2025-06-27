@@ -1,0 +1,79 @@
+version = "2"
+
+[run]
+timeout = "5m"
+go = "1.21"
+
+[linters-settings.govet]
+check-shadowing = false
+
+[linters-settings.gocyclo]
+min-complexity = 50
+
+[linters-settings.dupl]
+threshold = 300
+
+[linters-settings.goconst]
+min-len = 8
+min-occurrences = 15
+
+[linters-settings.misspell]
+locale = "US"
+
+[linters-settings.lll]
+line-length = 200
+
+[linters-settings.funlen]
+lines = 300
+statements = 150
+
+[linters]
+disable-all = true
+enable = [
+  "errcheck",
+  "govet",
+  "ineffassign",
+  "misspell",
+  "staticcheck",
+  "unused"
+]
+
+[issues]
+max-issues-per-linter = 0
+max-same-issues = 0
+
+[[issues.exclude-rules]]
+path = "_test\\.go"
+linters = ["goconst", "funlen", "gocyclo", "dupl", "gosec"]
+
+[[issues.exclude-rules]]
+path = "pkg/relay/tunnel_test\\.go"
+linters = ["goconst", "gosec"]
+
+[[issues.exclude-rules]]
+path = "pkg/auth/auth_test\\.go"
+linters = ["goconst", "gosec"]
+
+[[issues.exclude-rules]]
+path = "test/integration_test\\.go"
+linters = ["goconst", "funlen", "gocyclo", "gosec"]
+
+[[issues.exclude-rules]]
+path = "pkg/service/service\\.go"
+linters = ["gosec"]
+
+[[issues.exclude-rules]]
+path = "pkg/config/config\\.go"
+linters = ["gosec"]
+
+[[issues.exclude-rules]]
+path = "pkg/metrics/metrics\\.go"
+linters = ["gosec"]
+
+[[issues.exclude-rules]]
+path = "pkg/relay/client\\.go"
+linters = ["gosec"]
+
+[[issues.exclude-rules]]
+path = "cmd/cloudbridge-client/main\\.go"
+linters = ["gosec"]

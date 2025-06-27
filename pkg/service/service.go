@@ -170,10 +170,18 @@ func installWindows(binaryPath string) error {
 
 	// Настраиваем параметры службы
 	configPath := filepath.Join(os.Getenv("ProgramData"), "cloudbridge-client", "config.yaml")
-	exec.Command("nssm", "set", serviceName, "AppParameters", "--config", configPath).Run()
-	exec.Command("nssm", "set", serviceName, "DisplayName", "CloudBridge Client").Run()
-	exec.Command("nssm", "set", serviceName, "Description", "CloudBridge Client Service").Run()
-	exec.Command("nssm", "set", serviceName, "Start", "SERVICE_AUTO_START").Run()
+	if err := exec.Command("nssm", "set", serviceName, "AppParameters", "--config", configPath).Run(); err != nil {
+		return fmt.Errorf("failed to set app parameters: %w", err)
+	}
+	if err := exec.Command("nssm", "set", serviceName, "DisplayName", "CloudBridge Client").Run(); err != nil {
+		return fmt.Errorf("failed to set display name: %w", err)
+	}
+	if err := exec.Command("nssm", "set", serviceName, "Description", "CloudBridge Client Service").Run(); err != nil {
+		return fmt.Errorf("failed to set description: %w", err)
+	}
+	if err := exec.Command("nssm", "set", serviceName, "Start", "SERVICE_AUTO_START").Run(); err != nil {
+		return fmt.Errorf("failed to set start type: %w", err)
+	}
 
 	return nil
 }
@@ -228,22 +236,42 @@ func installMacOS(binaryPath string) error {
 
 // Вспомогательные функции для удаления службы
 func uninstallLinux() error {
-	exec.Command("systemctl", "stop", serviceName).Run()
-	exec.Command("systemctl", "disable", serviceName).Run()
-	os.Remove("/etc/systemd/system/" + serviceName + ".service")
-	os.Remove("/usr/local/bin/" + serviceName)
+	if err := exec.Command("systemctl", "stop", serviceName).Run(); err != nil {
+		// Log error but continue
+		fmt.Printf("Warning: failed to stop service: %v\n", err)
+	}
+	if err := exec.Command("systemctl", "disable", serviceName).Run(); err != nil {
+		// Log error but continue
+		fmt.Printf("Warning: failed to disable service: %v\n", err)
+	}
+	if err := os.Remove("/etc/systemd/system/" + serviceName + ".service"); err != nil {
+		fmt.Printf("Warning: failed to remove service file: %v\n", err)
+	}
+	if err := os.Remove("/usr/local/bin/" + serviceName); err != nil {
+		fmt.Printf("Warning: failed to remove binary: %v\n", err)
+	}
 	return exec.Command("systemctl", "daemon-reload").Run()
 }
 
 func uninstallWindows() error {
-	exec.Command("nssm", "stop", serviceName).Run()
+	if err := exec.Command("nssm", "stop", serviceName).Run(); err != nil {
+		// Log error but continue
+		fmt.Printf("Warning: failed to stop service: %v\n", err)
+	}
 	return exec.Command("nssm", "remove", serviceName, "confirm").Run()
 }
 
 func uninstallMacOS() error {
-	exec.Command("launchctl", "unload", "/Library/LaunchDaemons/com.cloudbridge.client.plist").Run()
-	os.Remove("/Library/LaunchDaemons/com.cloudbridge.client.plist")
-	os.Remove("/usr/local/bin/" + serviceName)
+	if err := exec.Command("launchctl", "unload", "/Library/LaunchDaemons/com.cloudbridge.client.plist").Run(); err != nil {
+		// Log error but continue
+		fmt.Printf("Warning: failed to unload service: %v\n", err)
+	}
+	if err := os.Remove("/Library/LaunchDaemons/com.cloudbridge.client.plist"); err != nil {
+		fmt.Printf("Warning: failed to remove plist: %v\n", err)
+	}
+	if err := os.Remove("/usr/local/bin/" + serviceName); err != nil {
+		fmt.Printf("Warning: failed to remove binary: %v\n", err)
+	}
 	return nil
 }
 

@@ -76,7 +76,11 @@ func run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			log.Printf("Failed to close client: %v", err)
+		}
+	}()
 
 	// Set up signal handling for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())

@@ -104,13 +104,13 @@ func validateConfig(c *types.Config) error {
 
 	if c.Auth.Keycloak.Enabled {
 		if c.Auth.Keycloak.ServerURL == "" {
-			return fmt.Errorf("Keycloak server URL is required")
+			return fmt.Errorf("keycloak server URL is required")
 		}
 		if c.Auth.Keycloak.Realm == "" {
-			return fmt.Errorf("Keycloak realm is required")
+			return fmt.Errorf("keycloak realm is required")
 		}
 		if c.Auth.Keycloak.ClientID == "" {
-			return fmt.Errorf("Keycloak client ID is required")
+			return fmt.Errorf("keycloak client ID is required")
 		}
 	}
 

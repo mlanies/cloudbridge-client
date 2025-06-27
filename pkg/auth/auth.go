@@ -74,16 +74,16 @@ func NewAuthManager(config *AuthConfig) (*AuthManager, error) {
 	switch config.Type {
 	case "jwt":
 		if config.Secret == "" {
-			return nil, fmt.Errorf("JWT secret is required")
+			return nil, fmt.Errorf("jwt secret is required")
 		}
 		am.jwtSecret = []byte(config.Secret)
 
 	case "keycloak":
 		if config.Keycloak == nil {
-			return nil, fmt.Errorf("Keycloak configuration is required")
+			return nil, fmt.Errorf("keycloak configuration is required")
 		}
 		if err := am.setupKeycloak(); err != nil {
-			return nil, fmt.Errorf("failed to setup Keycloak: %w", err)
+			return nil, fmt.Errorf("failed to setup keycloak: %w", err)
 		}
 
 	default:
@@ -106,18 +106,18 @@ func (am *AuthManager) setupKeycloak() error {
 	// Fetch JWKS
 	jwks, err := am.fetchJWKS()
 	if err != nil {
-		return fmt.Errorf("failed to fetch JWKS: %w", err)
+		return fmt.Errorf("failed to fetch jwks: %w", err)
 	}
 
 	// Convert first key to RSA public key
 	if len(jwks.Keys) == 0 {
-		return fmt.Errorf("no keys found in JWKS")
+		return fmt.Errorf("no keys found in jwks")
 	}
 
 	key := jwks.Keys[0]
 	publicKey, err := am.jwkToRSAPublicKey(key)
 	if err != nil {
-		return fmt.Errorf("failed to convert JWK to RSA public key: %w", err)
+		return fmt.Errorf("failed to convert jwk to RSA public key: %w", err)
 	}
 
 	am.publicKey = publicKey
@@ -130,15 +130,19 @@ func (am *AuthManager) fetchJWKS() (*JWKS, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			_ = cerr // Игнорируем ошибку закрытия response body
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to fetch JWKS: %s", resp.Status)
+		return nil, fmt.Errorf("failed to fetch jwks: %s", resp.Status)
 	}
 
 	var jwks JWKS
 	if err := json.NewDecoder(resp.Body).Decode(&jwks); err != nil {
-		return nil, fmt.Errorf("failed to decode JWKS: %w", err)
+		return nil, fmt.Errorf("failed to decode jwks: %w", err)
 	}
 
 	return &jwks, nil
@@ -178,7 +182,7 @@ func (am *AuthManager) validateJWTToken(tokenString string) (*jwt.Token, error) 
 	}
 
 	if !token.Valid {
-		return nil, errors.NewRelayError(errors.ErrInvalidToken, "Invalid JWT token")
+		return nil, errors.NewRelayError(errors.ErrInvalidToken, "invalid JWT token")
 	}
 
 	return token, nil
@@ -195,7 +199,7 @@ func (am *AuthManager) validateKeycloakToken(tokenString string) (*jwt.Token, er
 	})
 
 	if err != nil {
-		return nil, errors.NewRelayError(errors.ErrInvalidToken, fmt.Sprintf("Keycloak token validation failed: %v", err))
+		return nil, errors.NewRelayError(errors.ErrInvalidToken, fmt.Sprintf("keycloak token validation failed: %v", err))
 	}
 
 	if !token.Valid {

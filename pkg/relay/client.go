@@ -152,13 +152,17 @@ func (c *Client) Connect() error {
 
 	// Send hello message
 	if err := c.sendHello(); err != nil {
-		conn.Close()
+		if cerr := conn.Close(); cerr != nil {
+			_ = cerr // Игнорируем ошибку закрытия соединения при ошибке отправки hello
+		}
 		return fmt.Errorf("failed to send hello: %w", err)
 	}
 
 	// Receive hello response
 	if err := c.receiveHelloResponse(); err != nil {
-		conn.Close()
+		if cerr := conn.Close(); cerr != nil {
+			_ = cerr // Игнорируем ошибку закрытия соединения при ошибке получения hello response
+		}
 		return fmt.Errorf("failed to receive hello response: %w", err)
 	}
 
@@ -313,7 +317,9 @@ func (c *Client) Close() error {
 
 	// Close connection
 	if c.conn != nil {
-		c.conn.Close()
+		if err := c.conn.Close(); err != nil {
+			fmt.Printf("Failed to close connection: %v\n", err)
+		}
 	}
 
 	// Cancel context

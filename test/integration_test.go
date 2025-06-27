@@ -44,5 +44,7 @@ func TestRelayIntegration(t *testing.T) {
 	if err != nil {
 		t.Skipf("Tunnel not established: %v", err)
 	}
-	conn.Close()
+	if err := conn.Close(); err != nil {
+		t.Logf("Failed to close connection: %v", err)
+	}
 }
