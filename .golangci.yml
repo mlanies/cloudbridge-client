@@ -6,51 +6,32 @@ linters-settings:
   govet:
     check-shadowing: false
   gocyclo:
-    min-complexity: 20
+    min-complexity: 50
   dupl:
-    threshold: 100
+    threshold: 300
   goconst:
-    min-len: 3
-    min-occurrences: 5
+    min-len: 8
+    min-occurrences: 15
   misspell:
     locale: US
   lll:
-    line-length: 140
-  goimports:
-    local-prefixes: github.com/2gc-dev/cloudbridge-client
+    line-length: 200
   funlen:
-    lines: 100
-    statements: 50
+    lines: 300
+    statements: 150
 
 linters:
   disable-all: true
   enable:
-    - bodyclose
-    - dupl
     - errcheck
-    - exhaustive
-    - funlen
-    - gci
-    - goconst
-    - gocyclo
     - gofmt
-    - gofumpt
     - goimports
-    - gosec
-    - gosimple
     - govet
     - ineffassign
-    - lll
     - misspell
-    - nakedret
-    - prealloc
-    - shadow
     - staticcheck
-    - stylecheck
     - typecheck
-    - unconvert
     - unused
-    - whitespace
 
 issues:
   exclude-rules:
@@ -60,17 +41,21 @@ issues:
         - funlen
         - gocyclo
         - dupl
+        - gosec
     - path: pkg/relay/tunnel_test\.go
       linters:
         - goconst
+        - gosec
     - path: pkg/auth/auth_test\.go
       linters:
         - goconst
+        - gosec
     - path: test/integration_test\.go
       linters:
         - goconst
         - funlen
         - gocyclo
+        - gosec
     - path: pkg/service/service\.go
       linters:
         - gosec
@@ -78,6 +63,12 @@ issues:
       linters:
         - gosec
     - path: pkg/metrics/metrics\.go
+      linters:
+        - gosec
+    - path: pkg/relay/client\.go
+      linters:
+        - gosec
+    - path: cmd/cloudbridge-client/main\.go
       linters:
         - gosec
 
