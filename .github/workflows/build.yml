@@ -75,7 +75,7 @@ jobs:
       - name: Run golangci-lint
         run: golangci-lint run --timeout=5m
 
-  build:
+  build: 
     name: Build
     needs: [test, lint]
     runs-on: ubuntu-latest
