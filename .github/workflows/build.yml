@@ -145,7 +145,7 @@ jobs:
         id: version
         run: |
           # Read version from VERSION file and append commit hash
-          BASE_VERSION=$(cat VERSION)
+          BASE_VERSION=$(cat VERSION | tr -d ' ')
           COMMIT_HASH=$(git rev-parse --short HEAD)
           VERSION="${BASE_VERSION}-${COMMIT_HASH}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
