@@ -33,11 +33,27 @@ jobs:
           export CGO_ENABLED=1
           go test -v -race ./...
 
-      - name: Upload coverage
+      - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
           file: ./coverage.txt
-          fail_ci_if_error: true
+          fail_ci_if_error: false
+        continue-on-error: true
+
+      - name: Display coverage summary
+        run: |
+          if [ -f coverage.txt ]; then
+            echo "=== Coverage Report ==="
+            echo "Total coverage:"
+            go tool cover -func=coverage.txt | tail -1
+            echo ""
+            echo "Coverage by package:"
+            go tool cover -func=coverage.txt | grep -E "(github\.com|total:)"
+            echo ""
+            echo "HTML coverage report generated in coverage.txt"
+          else
+            echo "No coverage report generated"
+          fi
 
   lint:
     name: Lint
