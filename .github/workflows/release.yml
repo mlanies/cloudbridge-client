@@ -47,9 +47,71 @@ jobs:
           cd build
           sha256sum * > checksums.txt
 
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          # Extract version from tag
+          VERSION=${GITHUB_REF#refs/tags/}
+          
+          # Generate changelog from commits since last tag
+          if git tag --sort=-version:refname | head -n2 | tail -n1 > /dev/null 2>&1; then
+            PREVIOUS_TAG=$(git tag --sort=-version:refname | head -n2 | tail -n1)
+            CHANGELOG=$(git log --pretty=format:"- %s" $PREVIOUS_TAG..HEAD)
+          else
+            CHANGELOG=$(git log --pretty=format:"- %s" --reverse)
+          fi
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: ${{ steps.release_notes.outputs.version }}
+          name: "CloudBridge Client ${{ steps.release_notes.outputs.version }}"
+          body: |
+            ## CloudBridge Client Release
+            
+            **Version:** ${{ steps.release_notes.outputs.version }}
+            **Commit:** ${{ github.sha }}
+            **Date:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')
+            
+            ### Changes
+            ${{ steps.release_notes.outputs.changelog }}
+            
+            ### Downloads
+            Choose the appropriate binary for your platform:
+            - **Windows (x64):** `cloudbridge-client-windows-amd64.exe`
+            - **Windows (ARM64):** `cloudbridge-client-windows-arm64.exe`
+            - **Linux (x64):** `cloudbridge-client-linux-amd64`
+            - **Linux (ARM64):** `cloudbridge-client-linux-arm64`
+            - **macOS (x64):** `cloudbridge-client-darwin-amd64`
+            - **macOS (ARM64):** `cloudbridge-client-darwin-arm64`
+            
+            ### Installation
+            ```bash
+            # Download and make executable (Linux/macOS)
+            chmod +x cloudbridge-client-linux-amd64
+            
+            # Run with your JWT token
+            ./cloudbridge-client-linux-amd64 --token "your-jwt-token"
+            ```
+            
+            ### Features
+            - TLS 1.3 support with secure cipher suites
+            - JWT authentication with multi-tenancy
+            - Cross-platform compatibility (Windows, Linux, macOS)
+            - Automatic reconnection and heartbeat
+            - Prometheus metrics integration
+            - Rate limiting with exponential backoff
+            
+            ### Security
+            - Forced TLS 1.3 usage
+            - Certificate validation
+            - JWT token validation
+            - Rate limiting per user
           files: |
             build/cloudbridge-client-windows-amd64.exe
             build/cloudbridge-client-windows-arm64.exe
