@@ -18,7 +18,7 @@ build:
 build-all:
 	@echo "Building for all platforms..."
 	@mkdir -p ${BUILD_DIR}
-	@for platform in ${PLATFORMS} ${RUSSIAN_PLATFORMS}; do \
+	@for platform in ${PLATFORMS}; do \
 		os=$${platform%/*}; \
 		arch=$${platform#*/}; \
 		output="${BUILD_DIR}/${BINARY_NAME}-$${os}-$${arch}"; \
