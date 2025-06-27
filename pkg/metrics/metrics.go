@@ -3,7 +3,6 @@ package metrics
 import (
 	"fmt"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -17,16 +16,14 @@ type Metrics struct {
 	server  *http.Server
 
 	// Prometheus metrics
-	bytesTransferred    *prometheus.CounterVec
-	connectionsHandled  *prometheus.CounterVec
-	activeConnections   *prometheus.GaugeVec
-	connectionDuration  *prometheus.HistogramVec
-	bufferPoolSize      *prometheus.GaugeVec
-	bufferPoolUsage     *prometheus.GaugeVec
-	errorsTotal         *prometheus.CounterVec
-	heartbeatLatency    *prometheus.HistogramVec
-
-	mu sync.RWMutex
+	bytesTransferred   *prometheus.CounterVec
+	connectionsHandled *prometheus.CounterVec
+	activeConnections  *prometheus.GaugeVec
+	connectionDuration *prometheus.HistogramVec
+	bufferPoolSize     *prometheus.GaugeVec
+	bufferPoolUsage    *prometheus.GaugeVec
+	errorsTotal        *prometheus.CounterVec
+	heartbeatLatency   *prometheus.HistogramVec
 }
 
 // NewMetrics creates a new metrics system
@@ -246,4 +243,4 @@ func (m *Metrics) GetMetrics() map[string]interface{} {
 		"enabled": true,
 		"port":    m.port,
 	}
-} 
+}

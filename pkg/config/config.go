@@ -80,26 +80,22 @@ func validateConfig(c *types.Config) error {
 		return fmt.Errorf("invalid relay port")
 	}
 
-	if c.Relay.TLS.Enabled {
-		if c.Relay.TLS.MinVersion != "1.3" {
-			return fmt.Errorf("only TLS 1.3 is supported")
-		}
+	if c.Relay.TLS.Enabled && c.Relay.TLS.MinVersion != "1.3" {
+		return fmt.Errorf("only TLS 1.3 is supported")
+	}
 
-		if c.Relay.TLS.VerifyCert {
-			if c.Relay.TLS.CACert != "" {
-				if _, err := os.Stat(c.Relay.TLS.CACert); os.IsNotExist(err) {
-					return fmt.Errorf("CA certificate file not found: %s", c.Relay.TLS.CACert)
-				}
-			}
+	if c.Relay.TLS.Enabled && c.Relay.TLS.CACert != "" {
+		if _, err := os.Stat(c.Relay.TLS.CACert); os.IsNotExist(err) {
+			return fmt.Errorf("CA certificate file not found: %s", c.Relay.TLS.CACert)
 		}
+	}
 
-		if c.Relay.TLS.ClientCert != "" && c.Relay.TLS.ClientKey == "" {
-			return fmt.Errorf("client key is required when client certificate is provided")
-		}
+	if c.Relay.TLS.Enabled && c.Relay.TLS.ClientCert != "" && c.Relay.TLS.ClientKey == "" {
+		return fmt.Errorf("client key is required when client certificate is provided")
+	}
 
-		if c.Relay.TLS.ClientKey != "" && c.Relay.TLS.ClientCert == "" {
-			return fmt.Errorf("client certificate is required when client key is provided")
-		}
+	if c.Relay.TLS.Enabled && c.Relay.TLS.ClientKey != "" && c.Relay.TLS.ClientCert == "" {
+		return fmt.Errorf("client certificate is required when client key is provided")
 	}
 
 	if c.Auth.Type == "jwt" && c.Auth.Secret == "" {
@@ -154,9 +150,9 @@ func CreateTLSConfig(c *types.Config) (*tls.Config, error) {
 
 	// Load CA certificate if provided
 	if c.Relay.TLS.CACert != "" {
-		caCert, err := os.ReadFile(c.Relay.TLS.CACert)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read CA certificate: %w", err)
+		caCert, readErr := os.ReadFile(c.Relay.TLS.CACert)
+		if readErr != nil {
+			return nil, fmt.Errorf("failed to read CA certificate: %w", readErr)
 		}
 
 		caCertPool := x509.NewCertPool()
@@ -169,12 +165,12 @@ func CreateTLSConfig(c *types.Config) (*tls.Config, error) {
 
 	// Load client certificate if provided
 	if c.Relay.TLS.ClientCert != "" && c.Relay.TLS.ClientKey != "" {
-		cert, err := tls.LoadX509KeyPair(c.Relay.TLS.ClientCert, c.Relay.TLS.ClientKey)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load client certificate: %w", err)
+		cert, certErr := tls.LoadX509KeyPair(c.Relay.TLS.ClientCert, c.Relay.TLS.ClientKey)
+		if certErr != nil {
+			return nil, fmt.Errorf("failed to load client certificate: %w", certErr)
 		}
 		tlsConfig.Certificates = []tls.Certificate{cert}
 	}
 
 	return tlsConfig, nil
-} 
+}

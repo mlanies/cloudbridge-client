@@ -7,29 +7,29 @@ import (
 
 // Error codes as defined in the requirements
 const (
-	ErrInvalidToken          = "invalid_token"
-	ErrRateLimitExceeded     = "rate_limit_exceeded"
+	ErrInvalidToken           = "invalid_token"
+	ErrRateLimitExceeded      = "rate_limit_exceeded"
 	ErrConnectionLimitReached = "connection_limit_reached"
-	ErrServerUnavailable     = "server_unavailable"
-	ErrInvalidTunnelInfo     = "invalid_tunnel_info"
-	ErrUnknownMessageType    = "unknown_message_type"
-	ErrTLSHandshakeFailed    = "tls_handshake_failed"
-	ErrAuthenticationFailed  = "authentication_failed"
-	ErrTunnelCreationFailed  = "tunnel_creation_failed"
-	ErrHeartbeatFailed       = "heartbeat_failed"
-	ErrTenantLimitExceeded   = "tenant_limit_exceeded"
-	ErrTenantNotFound        = "tenant_not_found"
-	ErrIPNotAllowed          = "ip_not_allowed"
-	ErrBufferPoolExhausted   = "buffer_pool_exhausted"
-	ErrConnectionTimeout     = "connection_timeout"
-	ErrDataTransferFailed    = "data_transfer_failed"
+	ErrServerUnavailable      = "server_unavailable"
+	ErrInvalidTunnelInfo      = "invalid_tunnel_info"
+	ErrUnknownMessageType     = "unknown_message_type"
+	ErrTLSHandshakeFailed     = "tls_handshake_failed"
+	ErrAuthenticationFailed   = "authentication_failed"
+	ErrTunnelCreationFailed   = "tunnel_creation_failed"
+	ErrHeartbeatFailed        = "heartbeat_failed"
+	ErrTenantLimitExceeded    = "tenant_limit_exceeded"
+	ErrTenantNotFound         = "tenant_not_found"
+	ErrIPNotAllowed           = "ip_not_allowed"
+	ErrBufferPoolExhausted    = "buffer_pool_exhausted"
+	ErrConnectionTimeout      = "connection_timeout"
+	ErrDataTransferFailed     = "data_transfer_failed"
 )
 
 // RelayError represents a relay-specific error
 type RelayError struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	Retry   bool   `json:"retry,omitempty"`
+	Code    string        `json:"code"`
+	Message string        `json:"message"`
+	Retry   bool          `json:"retry,omitempty"`
 	Delay   time.Duration `json:"delay,omitempty"`
 }
 
@@ -61,8 +61,8 @@ func NewRelayError(code, message string) *RelayError {
 // isRetryable determines if an error code is retryable
 func isRetryable(code string) bool {
 	switch code {
-	case ErrRateLimitExceeded, ErrServerUnavailable, ErrHeartbeatFailed, 
-		 ErrConnectionTimeout, ErrDataTransferFailed:
+	case ErrRateLimitExceeded, ErrServerUnavailable, ErrHeartbeatFailed,
+		ErrConnectionTimeout, ErrDataTransferFailed:
 		return true
 	default:
 		return false
@@ -113,34 +113,34 @@ func HandleError(err error) (*RelayError, error) {
 
 // contains checks if a string contains a substring
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || 
-		(len(s) > len(substr) && (s[:len(substr)] == substr || 
-		s[len(s)-len(substr):] == substr || 
-		func() bool {
-			for i := 1; i <= len(s)-len(substr); i++ {
-				if s[i:i+len(substr)] == substr {
-					return true
+	return len(s) >= len(substr) && (s == substr ||
+		(len(s) > len(substr) && (s[:len(substr)] == substr ||
+			s[len(s)-len(substr):] == substr ||
+			func() bool {
+				for i := 1; i <= len(s)-len(substr); i++ {
+					if s[i:i+len(substr)] == substr {
+						return true
+					}
 				}
-			}
-			return false
-		}())))
+				return false
+			}())))
 }
 
 // RetryStrategy defines retry behavior
 type RetryStrategy struct {
-	MaxRetries       int
+	MaxRetries        int
 	BackoffMultiplier float64
-	MaxBackoff       time.Duration
-	CurrentRetry     int
+	MaxBackoff        time.Duration
+	CurrentRetry      int
 }
 
 // NewRetryStrategy creates a new retry strategy
 func NewRetryStrategy(maxRetries int, backoffMultiplier float64, maxBackoff time.Duration) *RetryStrategy {
 	return &RetryStrategy{
-		MaxRetries:       maxRetries,
+		MaxRetries:        maxRetries,
 		BackoffMultiplier: backoffMultiplier,
-		MaxBackoff:       maxBackoff,
-		CurrentRetry:     0,
+		MaxBackoff:        maxBackoff,
+		CurrentRetry:      0,
 	}
 }
 
@@ -163,7 +163,7 @@ func (rs *RetryStrategy) GetNextDelay(err error) time.Duration {
 
 	baseDelay := relayErr.GetDelay()
 	delay := time.Duration(float64(baseDelay) * rs.BackoffMultiplier * float64(rs.CurrentRetry+1))
-	
+
 	if delay > rs.MaxBackoff {
 		delay = rs.MaxBackoff
 	}
@@ -175,4 +175,4 @@ func (rs *RetryStrategy) GetNextDelay(err error) time.Duration {
 // Reset resets the retry counter
 func (rs *RetryStrategy) Reset() {
 	rs.CurrentRetry = 0
-} 
+}

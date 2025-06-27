@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/2gc-dev/cloudbridge-client/pkg/errors"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 // Claims represents JWT claims with tenant support
@@ -34,8 +34,8 @@ type AuthManager struct {
 
 // AuthConfig contains authentication configuration
 type AuthConfig struct {
-	Type     string         `json:"type"`
-	Secret   string         `json:"secret"`
+	Type     string          `json:"type"`
+	Secret   string          `json:"secret"`
 	Keycloak *KeycloakConfig `json:"keycloak,omitempty"`
 }
 
@@ -309,4 +309,4 @@ func (am *AuthManager) GetTokenFromHeader(header string) (string, error) {
 	}
 
 	return parts[1], nil
-} 
+}

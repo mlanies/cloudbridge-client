@@ -33,4 +33,4 @@ type ConfigInterface interface {
 	GetRateLimitingMaxRetries() int
 	GetRateLimitingBackoffMultiplier() float64
 	GetRateLimitingMaxBackoff() time.Duration
-} 
+}

@@ -13,6 +13,7 @@ import (
 	"github.com/2gc-dev/cloudbridge-client/pkg/config"
 	"github.com/2gc-dev/cloudbridge-client/pkg/errors"
 	"github.com/2gc-dev/cloudbridge-client/pkg/relay"
+	"github.com/2gc-dev/cloudbridge-client/pkg/types"
 	"github.com/spf13/cobra"
 )
 
@@ -44,7 +45,10 @@ func main() {
 	rootCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")
 
 	// Mark required flags
-	rootCmd.MarkFlagRequired("token")
+	if err := rootCmd.MarkFlagRequired("token"); err != nil {
+		fmt.Fprintf(os.Stderr, "Error marking flag required: %v\n", err)
+		os.Exit(1)
+	}
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -79,7 +83,7 @@ func run(cmd *cobra.Command, args []string) error {
 	defer cancel()
 
 	sigChan := make(chan os.Signal, 1)
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == types.PlatformWindows {
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	} else {
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -104,7 +108,7 @@ func run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create tunnel: %w", err)
 	}
 
-	log.Printf("Successfully created tunnel %s: localhost:%d -> %s:%d", 
+	log.Printf("Successfully created tunnel %s: localhost:%d -> %s:%d",
 		tunnelID, localPort, remoteHost, remotePort)
 
 	// Start heartbeat
@@ -119,7 +123,7 @@ func run(cmd *cobra.Command, args []string) error {
 	case <-sigChan:
 		log.Println("Received shutdown signal, closing...")
 	case <-ctx.Done():
-		log.Println("Context cancelled, closing...")
+		log.Println("Context canceled, closing...")
 	}
 
 	return nil
@@ -128,7 +132,7 @@ func run(cmd *cobra.Command, args []string) error {
 // connectWithRetry connects to the relay server with retry logic
 func connectWithRetry(client *relay.Client) error {
 	retryStrategy := client.GetRetryStrategy()
-	
+
 	for {
 		err := client.Connect()
 		if err == nil {
@@ -149,7 +153,7 @@ func connectWithRetry(client *relay.Client) error {
 // authenticateWithRetry authenticates with retry logic
 func authenticateWithRetry(client *relay.Client, token string) error {
 	retryStrategy := client.GetRetryStrategy()
-	
+
 	for {
 		err := client.Authenticate(token)
 		if err == nil {
@@ -170,7 +174,7 @@ func authenticateWithRetry(client *relay.Client, token string) error {
 // createTunnelWithRetry creates a tunnel with retry logic
 func createTunnelWithRetry(client *relay.Client, tunnelID string, localPort int, remoteHost string, remotePort int) error {
 	retryStrategy := client.GetRetryStrategy()
-	
+
 	for {
 		err := client.CreateTunnel(tunnelID, localPort, remoteHost, remotePort)
 		if err == nil {
@@ -186,4 +190,4 @@ func createTunnelWithRetry(client *relay.Client, tunnelID string, localPort int,
 		log.Printf("Tunnel creation failed: %v, retrying in %v...", err, delay)
 		time.Sleep(delay)
 	}
-} 
+}

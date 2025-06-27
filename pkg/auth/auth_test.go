@@ -98,10 +98,10 @@ func TestValidateJWTToken_NoSubClaim(t *testing.T) {
 func TestExtractTenantID(t *testing.T) {
 	// Create a test token with tenant_id
 	claims := jwt.MapClaims{
-		"sub":        "test-user",
-		"tenant_id":  "tenant-001",
-		"exp":        time.Now().Add(time.Hour).Unix(),
-		"iat":        time.Now().Unix(),
+		"sub":       "test-user",
+		"tenant_id": "tenant-001",
+		"exp":       time.Now().Add(time.Hour).Unix(),
+		"iat":       time.Now().Unix(),
 	}
 
 	token := &jwt.Token{
@@ -151,10 +151,10 @@ func TestExtractTenantIDMissing(t *testing.T) {
 func TestExtractClaims(t *testing.T) {
 	// Create a test token with both subject and tenant_id
 	claims := jwt.MapClaims{
-		"sub":        "test-user",
-		"tenant_id":  "tenant-001",
-		"exp":        time.Now().Add(time.Hour).Unix(),
-		"iat":        time.Now().Unix(),
+		"sub":       "test-user",
+		"tenant_id": "tenant-001",
+		"exp":       time.Now().Add(time.Hour).Unix(),
+		"iat":       time.Now().Unix(),
 	}
 
 	token := &jwt.Token{
@@ -177,4 +177,4 @@ func TestExtractClaims(t *testing.T) {
 	if tenantID != "tenant-001" {
 		t.Errorf("Expected tenant_id 'tenant-001', got '%s'", tenantID)
 	}
-} 
+}

@@ -2,14 +2,12 @@ package performance
 
 import (
 	"runtime"
-	"sync"
 	"time"
 )
 
 // Optimizer provides performance optimization features
 type Optimizer struct {
 	enabled bool
-	mu      sync.RWMutex
 }
 
 // NewOptimizer creates a new performance optimizer
@@ -55,7 +53,7 @@ func (o *Optimizer) SetGCPercent(percent int) {
 	runtime.GC()
 	debug := runtime.MemStats{}
 	runtime.ReadMemStats(&debug)
-	
+
 	// Set GC percentage (lower = more aggressive GC)
 	runtime.GC()
 }
@@ -66,16 +64,16 @@ func (o *Optimizer) GetPerformanceStats() map[string]interface{} {
 	runtime.ReadMemStats(&m)
 
 	return map[string]interface{}{
-		"goroutines":        runtime.NumGoroutine(),
-		"cpu_count":         runtime.NumCPU(),
-		"max_procs":         runtime.GOMAXPROCS(0),
-		"memory_alloc":      m.Alloc,
+		"goroutines":         runtime.NumGoroutine(),
+		"cpu_count":          runtime.NumCPU(),
+		"max_procs":          runtime.GOMAXPROCS(0),
+		"memory_alloc":       m.Alloc,
 		"memory_total_alloc": m.TotalAlloc,
-		"memory_sys":        m.Sys,
-		"memory_heap_alloc": m.HeapAlloc,
-		"memory_heap_sys":   m.HeapSys,
-		"gc_cycles":         m.NumGC,
-		"gc_pause_total":    m.PauseTotalNs,
+		"memory_sys":         m.Sys,
+		"memory_heap_alloc":  m.HeapAlloc,
+		"memory_heap_sys":    m.HeapSys,
+		"gc_cycles":          m.NumGC,
+		"gc_pause_total":     m.PauseTotalNs,
 	}
 }
 
@@ -94,4 +92,4 @@ func (o *Optimizer) MonitorPerformance(interval time.Duration, callback func(map
 			callback(stats)
 		}
 	}()
-} 
+}

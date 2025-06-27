@@ -10,15 +10,15 @@ import (
 
 // Manager handles heartbeat operations
 type Manager struct {
-	client     interfaces.ClientInterface
-	interval   time.Duration
-	ticker     *time.Ticker
-	stopChan   chan struct{}
-	running    bool
-	mu         sync.RWMutex
-	lastBeat   time.Time
-	failCount  int
-	maxFails   int
+	client    interfaces.ClientInterface
+	interval  time.Duration
+	ticker    *time.Ticker
+	stopChan  chan struct{}
+	running   bool
+	mu        sync.RWMutex
+	lastBeat  time.Time
+	failCount int
+	maxFails  int
 }
 
 // NewManager creates a new heartbeat manager
@@ -206,4 +206,4 @@ func (m *Manager) SetMaxFails(maxFails int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.maxFails = maxFails
-} 
+}

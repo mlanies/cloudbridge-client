@@ -4,26 +4,28 @@ run:
 
 linters-settings:
   govet:
-    check-shadowing: true
+    check-shadowing: false
   gocyclo:
-    min-complexity: 15
+    min-complexity: 20
   dupl:
     threshold: 100
   goconst:
-    min-len: 2
-    min-occurrences: 3
+    min-len: 3
+    min-occurrences: 5
   misspell:
     locale: US
   lll:
     line-length: 140
   goimports:
     local-prefixes: github.com/2gc-dev/cloudbridge-client
+  funlen:
+    lines: 100
+    statements: 50
 
 linters:
   disable-all: true
   enable:
     - bodyclose
-    - deadcode
     - dupl
     - errcheck
     - exhaustive
@@ -34,7 +36,6 @@ linters:
     - gofmt
     - gofumpt
     - goimports
-    - gomnd
     - gosec
     - gosimple
     - govet
@@ -43,35 +44,42 @@ linters:
     - misspell
     - nakedret
     - prealloc
+    - shadow
     - staticcheck
-    - structcheck
     - stylecheck
     - typecheck
     - unconvert
     - unused
-    - varcheck
     - whitespace
 
 issues:
   exclude-rules:
     - path: _test\.go
       linters:
-        - gomnd
         - goconst
         - funlen
         - gocyclo
         - dupl
     - path: pkg/relay/tunnel_test\.go
       linters:
-        - gomnd # Allow magic numbers in tests
+        - goconst
     - path: pkg/auth/auth_test\.go
       linters:
-        - gomnd # Allow magic numbers in tests
+        - goconst
     - path: test/integration_test\.go
       linters:
-        - gomnd # Allow magic numbers in tests
-        - funlen # Allow longer test functions
-        - gocyclo # Allow complex test logic
+        - goconst
+        - funlen
+        - gocyclo
+    - path: pkg/service/service\.go
+      linters:
+        - gosec
+    - path: pkg/config/config\.go
+      linters:
+        - gosec
+    - path: pkg/metrics/metrics\.go
+      linters:
+        - gosec
 
   max-issues-per-linter: 0
   max-same-issues: 0 

@@ -4,17 +4,18 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+
 	"github.com/2gc-dev/cloudbridge-client/pkg/tunnel"
 	"github.com/2gc-dev/cloudbridge-client/pkg/types"
 )
 
 type mockClient struct{}
 
-func (m *mockClient) IsConnected() bool { return true }
-func (m *mockClient) SendHeartbeat() error { return nil }
+func (m *mockClient) IsConnected() bool        { return true }
+func (m *mockClient) SendHeartbeat() error     { return nil }
 func (m *mockClient) GetConfig() *types.Config { return nil }
-func (m *mockClient) GetClientID() string { return "mock-client" }
-func (m *mockClient) GetTenantID() string { return "mock-tenant" }
+func (m *mockClient) GetClientID() string      { return "mock-client" }
+func (m *mockClient) GetTenantID() string      { return "mock-tenant" }
 
 func TestTunnelCreation(t *testing.T) {
 	mgr := tunnel.NewManager(&mockClient{})
@@ -97,4 +98,4 @@ func TestTunnelConcurrency(t *testing.T) {
 	if len(all) != 10 {
 		t.Errorf("Expected 10 tunnels, got %d", len(all))
 	}
-} 
+}

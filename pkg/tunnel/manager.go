@@ -11,10 +11,10 @@ import (
 
 // BufferManager manages buffer pools for efficient data transfer
 type BufferManager struct {
-	BufferSize    int
-	MaxBuffers    int
-	BufferPool    chan []byte
-	mu            sync.RWMutex
+	BufferSize int
+	MaxBuffers int
+	BufferPool chan []byte
+	mu         sync.RWMutex
 }
 
 // NewBufferManager creates a new buffer manager
@@ -89,11 +89,11 @@ func (t *Tunnel) SetActive(active bool) {
 
 // TunnelStats represents tunnel statistics
 type TunnelStats struct {
-	BytesTransferred    int64
-	ConnectionsHandled  int64
-	ActiveConnections   int32
-	LastActivity        time.Time
-	mu                  sync.RWMutex
+	BytesTransferred   int64
+	ConnectionsHandled int64
+	ActiveConnections  int32
+	LastActivity       time.Time
+	mu                 sync.RWMutex
 }
 
 // NewTunnelStats creates new tunnel statistics
@@ -132,12 +132,12 @@ func (ts *TunnelStats) DecrementConnections() {
 func (ts *TunnelStats) GetStats() map[string]interface{} {
 	ts.mu.RLock()
 	defer ts.mu.RUnlock()
-	
+
 	return map[string]interface{}{
-		"bytes_transferred":    ts.BytesTransferred,
-		"connections_handled":  ts.ConnectionsHandled,
-		"active_connections":   ts.ActiveConnections,
-		"last_activity":        ts.LastActivity,
+		"bytes_transferred":   ts.BytesTransferred,
+		"connections_handled": ts.ConnectionsHandled,
+		"active_connections":  ts.ActiveConnections,
+		"last_activity":       ts.LastActivity,
 	}
 }
 
@@ -283,7 +283,7 @@ func (m *Manager) startTunnelProxy(tunnel *Tunnel) {
 	}
 	defer listener.Close()
 
-	fmt.Printf("Tunnel %s started: localhost:%d -> %s:%d\n", 
+	fmt.Printf("Tunnel %s started: localhost:%d -> %s:%d\n",
 		tunnel.ID, tunnel.LocalPort, tunnel.RemoteHost, tunnel.RemotePort)
 
 	for tunnel.IsActive() {
@@ -373,7 +373,7 @@ func (m *Manager) GetTunnelStats() map[string]interface{} {
 
 	stats := make(map[string]interface{})
 	stats["total_tunnels"] = len(m.tunnels)
-	
+
 	activeCount := 0
 	for _, tunnel := range m.tunnels {
 		if tunnel.IsActive() {
@@ -383,4 +383,4 @@ func (m *Manager) GetTunnelStats() map[string]interface{} {
 	stats["active_tunnels"] = activeCount
 
 	return stats
-} 
+}

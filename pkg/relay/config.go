@@ -9,16 +9,16 @@ import (
 
 // Config represents the client configuration
 type Config struct {
-	UseTLS          bool
-	TLSCertFile     string
-	TLSKeyFile      string
-	TLSCAFile       string
-	ServerHost      string
-	ServerPort      int
-	JWTToken        string
-	LocalPort       int
-	ReconnectDelay  int
-	MaxRetries      int
+	UseTLS         bool
+	TLSCertFile    string
+	TLSKeyFile     string
+	TLSCAFile      string
+	ServerHost     string
+	ServerPort     int
+	JWTToken       string
+	LocalPort      int
+	ReconnectDelay int
+	MaxRetries     int
 }
 
 // NewTLSConfig creates a new TLS configuration
@@ -78,4 +78,4 @@ func (c *Config) Validate() error {
 	}
 
 	return nil
-} 
+}

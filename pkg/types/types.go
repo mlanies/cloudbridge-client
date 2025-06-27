@@ -4,6 +4,18 @@ import (
 	"time"
 )
 
+// Platform constants
+const (
+	PlatformLinux   = "linux"
+	PlatformWindows = "windows"
+	PlatformDarwin  = "darwin"
+)
+
+// Status constants
+const (
+	StatusInactive = "inactive"
+)
+
 // Config represents the complete client configuration
 type Config struct {
 	Relay        RelayConfig        `mapstructure:"relay"`
@@ -24,19 +36,19 @@ type RelayConfig struct {
 
 // TLSConfig contains TLS-specific settings
 type TLSConfig struct {
-	Enabled     bool   `mapstructure:"enabled"`
-	MinVersion  string `mapstructure:"min_version"`
-	VerifyCert  bool   `mapstructure:"verify_cert"`
-	CACert      string `mapstructure:"ca_cert"`
-	ClientCert  string `mapstructure:"client_cert"`
-	ClientKey   string `mapstructure:"client_key"`
-	ServerName  string `mapstructure:"server_name"`
+	Enabled    bool   `mapstructure:"enabled"`
+	MinVersion string `mapstructure:"min_version"`
+	VerifyCert bool   `mapstructure:"verify_cert"`
+	CACert     string `mapstructure:"ca_cert"`
+	ClientCert string `mapstructure:"client_cert"`
+	ClientKey  string `mapstructure:"client_key"`
+	ServerName string `mapstructure:"server_name"`
 }
 
 // AuthConfig contains authentication settings
 type AuthConfig struct {
-	Type     string       `mapstructure:"type"`
-	Secret   string       `mapstructure:"secret"`
+	Type     string         `mapstructure:"type"`
+	Secret   string         `mapstructure:"secret"`
 	Keycloak KeycloakConfig `mapstructure:"keycloak"`
 }
 
@@ -51,10 +63,10 @@ type KeycloakConfig struct {
 
 // RateLimitingConfig contains rate limiting settings
 type RateLimitingConfig struct {
-	Enabled          bool          `mapstructure:"enabled"`
-	MaxRetries       int           `mapstructure:"max_retries"`
-	BackoffMultiplier float64      `mapstructure:"backoff_multiplier"`
-	MaxBackoff       time.Duration `mapstructure:"max_backoff"`
+	Enabled           bool          `mapstructure:"enabled"`
+	MaxRetries        int           `mapstructure:"max_retries"`
+	BackoffMultiplier float64       `mapstructure:"backoff_multiplier"`
+	MaxBackoff        time.Duration `mapstructure:"max_backoff"`
 }
 
 // LoggingConfig contains logging settings
@@ -66,10 +78,10 @@ type LoggingConfig struct {
 
 // MetricsConfig contains metrics configuration
 type MetricsConfig struct {
-	Enabled         bool   `mapstructure:"enabled"`
-	PrometheusPort  int    `mapstructure:"prometheus_port"`
-	TenantMetrics   bool   `mapstructure:"tenant_metrics"`
-	BufferMetrics   bool   `mapstructure:"buffer_metrics"`
+	Enabled           bool `mapstructure:"enabled"`
+	PrometheusPort    int  `mapstructure:"prometheus_port"`
+	TenantMetrics     bool `mapstructure:"tenant_metrics"`
+	BufferMetrics     bool `mapstructure:"buffer_metrics"`
 	ConnectionMetrics bool `mapstructure:"connection_metrics"`
 }
 
@@ -79,4 +91,4 @@ type PerformanceConfig struct {
 	OptimizationMode string `mapstructure:"optimization_mode"`
 	GCPercent        int    `mapstructure:"gc_percent"`
 	MemoryBallast    bool   `mapstructure:"memory_ballast"`
-} 
+}

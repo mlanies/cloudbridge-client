@@ -20,35 +20,35 @@ import (
 
 // Client represents a CloudBridge Relay client
 type Client struct {
-	config         *types.Config
-	conn           net.Conn
-	encoder        *json.Encoder
-	decoder        *json.Decoder
-	authManager    *auth.AuthManager
-	tunnelManager  *tunnel.Manager
-	heartbeatMgr   *heartbeat.Manager
-	retryStrategy  *errors.RetryStrategy
-	metrics        *metrics.Metrics
-	optimizer      *performance.Optimizer
-	mu             sync.RWMutex
-	connected      bool
-	clientID       string
-	tenantID       string
-	ctx            context.Context
-	cancel         context.CancelFunc
+	config        *types.Config
+	conn          net.Conn
+	encoder       *json.Encoder
+	decoder       *json.Decoder
+	authManager   *auth.AuthManager
+	tunnelManager *tunnel.Manager
+	heartbeatMgr  *heartbeat.Manager
+	retryStrategy *errors.RetryStrategy
+	metrics       *metrics.Metrics
+	optimizer     *performance.Optimizer
+	mu            sync.RWMutex
+	connected     bool
+	clientID      string
+	tenantID      string
+	ctx           context.Context
+	cancel        context.CancelFunc
 }
 
 // Message types as defined in the requirements
 const (
-	MessageTypeHello         = "hello"
-	MessageTypeHelloResponse = "hello_response"
-	MessageTypeAuth          = "auth"
-	MessageTypeAuthResponse  = "auth_response"
-	MessageTypeTunnelInfo    = "tunnel_info"
-	MessageTypeTunnelResponse = "tunnel_response"
-	MessageTypeHeartbeat     = "heartbeat"
+	MessageTypeHello             = "hello"
+	MessageTypeHelloResponse     = "hello_response"
+	MessageTypeAuth              = "auth"
+	MessageTypeAuthResponse      = "auth_response"
+	MessageTypeTunnelInfo        = "tunnel_info"
+	MessageTypeTunnelResponse    = "tunnel_response"
+	MessageTypeHeartbeat         = "heartbeat"
 	MessageTypeHeartbeatResponse = "heartbeat_response"
-	MessageTypeError         = "error"
+	MessageTypeError             = "error"
 )
 
 // NewClient creates a new CloudBridge Relay client
@@ -57,8 +57,8 @@ func NewClient(cfg *types.Config) (*Client, error) {
 
 	// Create authentication manager
 	authManager, err := auth.NewAuthManager(&auth.AuthConfig{
-		Type:     cfg.Auth.Type,
-		Secret:   cfg.Auth.Secret,
+		Type:   cfg.Auth.Type,
+		Secret: cfg.Auth.Secret,
 		Keycloak: &auth.KeycloakConfig{
 			ServerURL: cfg.Auth.Keycloak.ServerURL,
 			Realm:     cfg.Auth.Keycloak.Realm,
@@ -305,7 +305,10 @@ func (c *Client) Close() error {
 
 	// Stop metrics server
 	if c.metrics != nil {
-		c.metrics.Stop()
+		if err := c.metrics.Stop(); err != nil {
+			// Log error but don't fail close operation
+			fmt.Printf("Failed to stop metrics: %v\n", err)
+		}
 	}
 
 	// Close connection
@@ -426,4 +429,4 @@ func (c *Client) GetMetrics() *metrics.Metrics {
 // GetOptimizer returns the performance optimizer
 func (c *Client) GetOptimizer() *performance.Optimizer {
 	return c.optimizer
-} 
+}
