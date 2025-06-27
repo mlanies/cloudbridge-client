@@ -92,6 +92,43 @@ cd cloudbridge-client
 go build -o cloudbridge-client ./cmd/cloudbridge-client
 ```
 
+### Настройка окружения разработки
+
+Для разработки требуется Go 1.21.13 или выше:
+
+```bash
+# Установка Go 1.21.13 (если не установлен)
+wget https://go.dev/dl/go1.21.13.linux-amd64.tar.gz
+sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.21.13.linux-amd64.tar.gz
+
+# Настройка PATH
+export PATH=/usr/local/go/bin:$PATH
+export PATH=$HOME/go/bin:$PATH
+
+# Или используйте готовый скрипт
+source setup-go.sh
+
+# Установка golangci-lint
+curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.57.2
+
+# Проверка установки
+go version
+golangci-lint version
+```
+
+### Запуск тестов и линтера
+
+```bash
+# Запуск тестов
+go test -v ./...
+
+# Запуск линтера
+golangci-lint run
+
+# Сборка проекта
+go build -v -o cloudbridge-client ./cmd/cloudbridge-client
+```
+
 ## Быстрый старт
 
 ### Базовое использование
