@@ -26,7 +26,12 @@ jobs:
         run: go mod download
 
       - name: Run tests
-        run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+        run: go test -v -coverprofile=coverage.txt -covermode=atomic ./...
+
+      - name: Run tests with race detector
+        run: |
+          export CGO_ENABLED=1
+          go test -v -race ./...
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4

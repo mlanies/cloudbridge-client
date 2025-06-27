@@ -18,7 +18,7 @@ func (m *mockClient) GetTenantID() string { return "mock-tenant" }
 
 func TestTunnelCreation(t *testing.T) {
 	mgr := tunnel.NewManager(&mockClient{})
-	err := mgr.RegisterTunnel("test-tunnel-1", 3389, "test-server", 3389)
+	err := mgr.RegisterTunnel("test-tunnel-1", 5001, "test-server", 3389)
 	if err != nil {
 		t.Fatalf("Failed to create tunnel: %v", err)
 	}
@@ -29,8 +29,8 @@ func TestTunnelCreation(t *testing.T) {
 	if tun.ID != "test-tunnel-1" {
 		t.Errorf("Expected tunnel ID 'test-tunnel-1', got '%s'", tun.ID)
 	}
-	if tun.LocalPort != 3389 {
-		t.Errorf("Expected local port 3389, got %d", tun.LocalPort)
+	if tun.LocalPort != 5001 {
+		t.Errorf("Expected local port 5001, got %d", tun.LocalPort)
 	}
 	if tun.RemoteHost != "test-server" {
 		t.Errorf("Expected remote host 'test-server', got '%s'", tun.RemoteHost)
@@ -48,8 +48,8 @@ func TestTunnelManagement(t *testing.T) {
 		remoteHost string
 		remotePort int
 	}{
-		{"test-tunnel-1", 3389, "test-server-1", 3389},
-		{"test-tunnel-2", 3390, "test-server-2", 3389},
+		{"test-tunnel-1", 5002, "test-server-1", 3389},
+		{"test-tunnel-2", 5003, "test-server-2", 3389},
 	}
 	for _, info := range tunnels {
 		err := mgr.RegisterTunnel(info.id, info.localPort, info.remoteHost, info.remotePort)
@@ -86,7 +86,7 @@ func TestTunnelConcurrency(t *testing.T) {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			err := mgr.RegisterTunnel(fmt.Sprintf("test-tunnel-%d", id), 4000+id, "test-server", 3389)
+			err := mgr.RegisterTunnel(fmt.Sprintf("test-tunnel-%d", id), 6000+id, "test-server", 3389)
 			if err != nil {
 				t.Errorf("Failed to create tunnel: %v", err)
 			}
