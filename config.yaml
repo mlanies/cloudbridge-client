@@ -29,4 +29,17 @@ rate_limiting:
 logging:
   level: "info"
   format: "json"
-  output: "stdout" 
+  output: "stdout"
+
+metrics:
+  enabled: true
+  prometheus_port: 9090
+  tenant_metrics: true
+  buffer_metrics: true
+  connection_metrics: true
+
+performance:
+  enabled: true
+  optimization_mode: "high_throughput"
+  gc_percent: 100
+  memory_ballast: true 

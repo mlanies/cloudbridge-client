@@ -14,6 +14,7 @@ func (m *mockClient) IsConnected() bool { return true }
 func (m *mockClient) SendHeartbeat() error { return nil }
 func (m *mockClient) GetConfig() *types.Config { return nil }
 func (m *mockClient) GetClientID() string { return "mock-client" }
+func (m *mockClient) GetTenantID() string { return "mock-tenant" }
 
 func TestTunnelCreation(t *testing.T) {
 	mgr := tunnel.NewManager(&mockClient{})

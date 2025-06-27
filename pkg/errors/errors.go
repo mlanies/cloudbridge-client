@@ -17,6 +17,12 @@ const (
 	ErrAuthenticationFailed  = "authentication_failed"
 	ErrTunnelCreationFailed  = "tunnel_creation_failed"
 	ErrHeartbeatFailed       = "heartbeat_failed"
+	ErrTenantLimitExceeded   = "tenant_limit_exceeded"
+	ErrTenantNotFound        = "tenant_not_found"
+	ErrIPNotAllowed          = "ip_not_allowed"
+	ErrBufferPoolExhausted   = "buffer_pool_exhausted"
+	ErrConnectionTimeout     = "connection_timeout"
+	ErrDataTransferFailed    = "data_transfer_failed"
 )
 
 // RelayError represents a relay-specific error
@@ -55,7 +61,8 @@ func NewRelayError(code, message string) *RelayError {
 // isRetryable determines if an error code is retryable
 func isRetryable(code string) bool {
 	switch code {
-	case ErrRateLimitExceeded, ErrServerUnavailable, ErrHeartbeatFailed:
+	case ErrRateLimitExceeded, ErrServerUnavailable, ErrHeartbeatFailed, 
+		 ErrConnectionTimeout, ErrDataTransferFailed:
 		return true
 	default:
 		return false
@@ -71,6 +78,10 @@ func getRetryDelay(code string) time.Duration {
 		return time.Second * 10
 	case ErrHeartbeatFailed:
 		return time.Second * 2
+	case ErrConnectionTimeout:
+		return time.Second * 3
+	case ErrDataTransferFailed:
+		return time.Second * 1
 	default:
 		return time.Second
 	}

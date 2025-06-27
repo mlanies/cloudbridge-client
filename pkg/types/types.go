@@ -10,6 +10,8 @@ type Config struct {
 	Auth         AuthConfig         `mapstructure:"auth"`
 	RateLimiting RateLimitingConfig `mapstructure:"rate_limiting"`
 	Logging      LoggingConfig      `mapstructure:"logging"`
+	Metrics      MetricsConfig      `mapstructure:"metrics"`
+	Performance  PerformanceConfig  `mapstructure:"performance"`
 }
 
 // RelayConfig contains relay server connection settings
@@ -60,4 +62,21 @@ type LoggingConfig struct {
 	Level  string `mapstructure:"level"`
 	Format string `mapstructure:"format"`
 	Output string `mapstructure:"output"`
+}
+
+// MetricsConfig contains metrics configuration
+type MetricsConfig struct {
+	Enabled         bool   `mapstructure:"enabled"`
+	PrometheusPort  int    `mapstructure:"prometheus_port"`
+	TenantMetrics   bool   `mapstructure:"tenant_metrics"`
+	BufferMetrics   bool   `mapstructure:"buffer_metrics"`
+	ConnectionMetrics bool `mapstructure:"connection_metrics"`
+}
+
+// PerformanceConfig contains performance optimization settings
+type PerformanceConfig struct {
+	Enabled          bool   `mapstructure:"enabled"`
+	OptimizationMode string `mapstructure:"optimization_mode"`
+	GCPercent        int    `mapstructure:"gc_percent"`
+	MemoryBallast    bool   `mapstructure:"memory_ballast"`
 } 

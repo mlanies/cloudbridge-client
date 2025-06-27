@@ -8,11 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Multi-tenancy support**: Added tenant_id support in JWT tokens and tunnel messages
+- **Enhanced TCP Proxy**: Improved buffer management with connection pooling
+- **Prometheus metrics**: Comprehensive metrics system with tenant-aware monitoring
+- **Performance optimization**: Runtime optimization for high throughput and low latency
+- **Extended error handling**: New error types for multi-tenancy and performance scenarios
+- **Go 1.21 upgrade**: Updated to Go 1.21 for better performance and features
 - Enhanced documentation with comprehensive guides
 - Improved error handling and logging
 - Better test coverage and architecture
 
 ### Changed
+- Updated JWT claims structure to include tenant_id field
+- Enhanced tunnel manager with buffer pooling and statistics
+- Improved error handling with new retryable error types
+- Updated configuration structure for metrics and performance settings
 - Updated configuration structure for better flexibility
 - Improved TLS 1.3 implementation
 - Enhanced rate limiting algorithms

@@ -12,6 +12,7 @@ type ClientInterface interface {
 	SendHeartbeat() error
 	GetConfig() *types.Config
 	GetClientID() string
+	GetTenantID() string
 }
 
 // ConfigInterface defines the interface for configuration

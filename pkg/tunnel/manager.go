@@ -9,6 +9,56 @@ import (
 	"github.com/2gc-dev/cloudbridge-client/pkg/interfaces"
 )
 
+// BufferManager manages buffer pools for efficient data transfer
+type BufferManager struct {
+	BufferSize    int
+	MaxBuffers    int
+	BufferPool    chan []byte
+	mu            sync.RWMutex
+}
+
+// NewBufferManager creates a new buffer manager
+func NewBufferManager(bufferSize, maxBuffers int) *BufferManager {
+	bm := &BufferManager{
+		BufferSize: bufferSize,
+		MaxBuffers: maxBuffers,
+		BufferPool: make(chan []byte, maxBuffers),
+	}
+
+	// Pre-allocate buffers
+	for i := 0; i < maxBuffers; i++ {
+		bm.BufferPool <- make([]byte, bufferSize)
+	}
+
+	return bm
+}
+
+// GetBuffer gets a buffer from the pool
+func (bm *BufferManager) GetBuffer() []byte {
+	select {
+	case buf := <-bm.BufferPool:
+		return buf
+	default:
+		// If pool is empty, create a new buffer
+		return make([]byte, bm.BufferSize)
+	}
+}
+
+// ReturnBuffer returns a buffer to the pool
+func (bm *BufferManager) ReturnBuffer(buf []byte) {
+	// Reset buffer
+	for i := range buf {
+		buf[i] = 0
+	}
+
+	select {
+	case bm.BufferPool <- buf:
+		// Buffer returned to pool
+	default:
+		// Pool is full, discard buffer
+	}
+}
+
 // Tunnel represents a tunnel configuration
 type Tunnel struct {
 	ID         string
@@ -18,6 +68,62 @@ type Tunnel struct {
 	Active     bool
 	CreatedAt  time.Time
 	LastUsed   time.Time
+	BufferMgr  *BufferManager
+	Stats      *TunnelStats
+}
+
+// TunnelStats represents tunnel statistics
+type TunnelStats struct {
+	BytesTransferred    int64
+	ConnectionsHandled  int64
+	ActiveConnections   int32
+	LastActivity        time.Time
+	mu                  sync.RWMutex
+}
+
+// NewTunnelStats creates new tunnel statistics
+func NewTunnelStats() *TunnelStats {
+	return &TunnelStats{
+		LastActivity: time.Now(),
+	}
+}
+
+// UpdateBytesTransferred updates bytes transferred count
+func (ts *TunnelStats) UpdateBytesTransferred(bytes int64) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	ts.BytesTransferred += bytes
+	ts.LastActivity = time.Now()
+}
+
+// IncrementConnections increments connection count
+func (ts *TunnelStats) IncrementConnections() {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	ts.ConnectionsHandled++
+	ts.ActiveConnections++
+	ts.LastActivity = time.Now()
+}
+
+// DecrementConnections decrements active connection count
+func (ts *TunnelStats) DecrementConnections() {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	ts.ActiveConnections--
+	ts.LastActivity = time.Now()
+}
+
+// GetStats returns a copy of current statistics
+func (ts *TunnelStats) GetStats() map[string]interface{} {
+	ts.mu.RLock()
+	defer ts.mu.RUnlock()
+	
+	return map[string]interface{}{
+		"bytes_transferred":    ts.BytesTransferred,
+		"connections_handled":  ts.ConnectionsHandled,
+		"active_connections":   ts.ActiveConnections,
+		"last_activity":        ts.LastActivity,
+	}
 }
 
 // Manager handles tunnel operations
@@ -59,6 +165,8 @@ func (m *Manager) RegisterTunnel(tunnelID string, localPort int, remoteHost stri
 		Active:     true,
 		CreatedAt:  time.Now(),
 		LastUsed:   time.Now(),
+		BufferMgr:  NewBufferManager(4096, 100),
+		Stats:      NewTunnelStats(),
 	}
 
 	m.tunnels[tunnelID] = tunnel
@@ -182,8 +290,10 @@ func (m *Manager) startTunnelProxy(tunnel *Tunnel) {
 func (m *Manager) handleTunnelConnection(tunnel *Tunnel, localConn net.Conn) {
 	defer localConn.Close()
 
-	// Update last used time
+	// Update last used time and increment connection count
 	tunnel.LastUsed = time.Now()
+	tunnel.Stats.IncrementConnections()
+	defer tunnel.Stats.DecrementConnections()
 
 	// Connect to remote host
 	remoteConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", tunnel.RemoteHost, tunnel.RemotePort))
@@ -198,7 +308,8 @@ func (m *Manager) handleTunnelConnection(tunnel *Tunnel, localConn net.Conn) {
 
 	// Local to remote
 	go func() {
-		buffer := make([]byte, 4096)
+		buffer := tunnel.BufferMgr.GetBuffer()
+		defer tunnel.BufferMgr.ReturnBuffer(buffer)
 		for {
 			n, err := localConn.Read(buffer)
 			if err != nil {
@@ -209,6 +320,7 @@ func (m *Manager) handleTunnelConnection(tunnel *Tunnel, localConn net.Conn) {
 				if err != nil {
 					break
 				}
+				tunnel.Stats.UpdateBytesTransferred(int64(n))
 			}
 		}
 		done <- true
@@ -216,7 +328,8 @@ func (m *Manager) handleTunnelConnection(tunnel *Tunnel, localConn net.Conn) {
 
 	// Remote to local
 	go func() {
-		buffer := make([]byte, 4096)
+		buffer := tunnel.BufferMgr.GetBuffer()
+		defer tunnel.BufferMgr.ReturnBuffer(buffer)
 		for {
 			n, err := remoteConn.Read(buffer)
 			if err != nil {
@@ -227,6 +340,7 @@ func (m *Manager) handleTunnelConnection(tunnel *Tunnel, localConn net.Conn) {
 				if err != nil {
 					break
 				}
+				tunnel.Stats.UpdateBytesTransferred(int64(n))
 			}
 		}
 		done <- true

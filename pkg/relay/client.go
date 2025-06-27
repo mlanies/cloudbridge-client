@@ -12,6 +12,8 @@ import (
 	"github.com/2gc-dev/cloudbridge-client/pkg/config"
 	"github.com/2gc-dev/cloudbridge-client/pkg/errors"
 	"github.com/2gc-dev/cloudbridge-client/pkg/heartbeat"
+	"github.com/2gc-dev/cloudbridge-client/pkg/metrics"
+	"github.com/2gc-dev/cloudbridge-client/pkg/performance"
 	"github.com/2gc-dev/cloudbridge-client/pkg/tunnel"
 	"github.com/2gc-dev/cloudbridge-client/pkg/types"
 )
@@ -26,9 +28,12 @@ type Client struct {
 	tunnelManager  *tunnel.Manager
 	heartbeatMgr   *heartbeat.Manager
 	retryStrategy  *errors.RetryStrategy
+	metrics        *metrics.Metrics
+	optimizer      *performance.Optimizer
 	mu             sync.RWMutex
 	connected      bool
 	clientID       string
+	tenantID       string
 	ctx            context.Context
 	cancel         context.CancelFunc
 }
@@ -73,10 +78,18 @@ func NewClient(cfg *types.Config) (*Client, error) {
 		cfg.RateLimiting.MaxBackoff,
 	)
 
+	// Create metrics system
+	metrics := metrics.NewMetrics(cfg.Metrics.Enabled, cfg.Metrics.PrometheusPort)
+
+	// Create performance optimizer
+	optimizer := performance.NewOptimizer(cfg.Performance.Enabled)
+
 	client := &Client{
 		config:        cfg,
 		authManager:   authManager,
 		retryStrategy: retryStrategy,
+		metrics:       metrics,
+		optimizer:     optimizer,
 		ctx:           ctx,
 		cancel:        cancel,
 	}
@@ -86,6 +99,22 @@ func NewClient(cfg *types.Config) (*Client, error) {
 
 	// Create heartbeat manager
 	client.heartbeatMgr = heartbeat.NewManager(client)
+
+	// Initialize performance optimization
+	if cfg.Performance.Enabled {
+		switch cfg.Performance.OptimizationMode {
+		case "high_throughput":
+			optimizer.OptimizeForHighThroughput()
+		case "low_latency":
+			optimizer.OptimizeForLowLatency()
+		}
+	}
+
+	// Start metrics server
+	if err := metrics.Start(); err != nil {
+		cancel()
+		return nil, fmt.Errorf("failed to start metrics server: %w", err)
+	}
 
 	return client, nil
 }
@@ -146,6 +175,21 @@ func (c *Client) Authenticate(token string) error {
 		return fmt.Errorf("not connected")
 	}
 
+	// Validate token and extract claims
+	validatedToken, err := c.authManager.ValidateToken(token)
+	if err != nil {
+		return fmt.Errorf("failed to validate token: %w", err)
+	}
+
+	// Extract subject and tenant_id from token
+	_, tenantID, err := c.authManager.ExtractClaims(validatedToken)
+	if err != nil {
+		return fmt.Errorf("failed to extract claims: %w", err)
+	}
+
+	// Store tenant ID
+	c.tenantID = tenantID
+
 	// Create auth message
 	authMsg, err := c.authManager.CreateAuthMessage(token)
 	if err != nil {
@@ -198,6 +242,7 @@ func (c *Client) CreateTunnel(tunnelID string, localPort int, remoteHost string,
 	tunnelMsg := map[string]interface{}{
 		"type":        MessageTypeTunnelInfo,
 		"tunnel_id":   tunnelID,
+		"tenant_id":   c.tenantID,
 		"local_port":  localPort,
 		"remote_host": remoteHost,
 		"remote_port": remotePort,
@@ -228,6 +273,11 @@ func (c *Client) CreateTunnel(tunnelID string, localPort int, remoteHost string,
 		return errors.NewRelayError(errors.ErrTunnelCreationFailed, errorMsg)
 	}
 
+	// Register tunnel with tunnel manager
+	if err := c.tunnelManager.RegisterTunnel(tunnelID, localPort, remoteHost, remotePort); err != nil {
+		return fmt.Errorf("failed to register tunnel: %w", err)
+	}
+
 	return nil
 }
 
@@ -241,18 +291,32 @@ func (c *Client) StopHeartbeat() {
 	c.heartbeatMgr.Stop()
 }
 
-// Close closes the connection and cleans up resources
+// Close closes the client connection and cleans up resources
 func (c *Client) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.StopHeartbeat()
-	c.cancel()
-
-	if c.conn != nil {
-		return c.conn.Close()
+	if !c.connected {
+		return nil
 	}
 
+	// Stop heartbeat
+	c.heartbeatMgr.Stop()
+
+	// Stop metrics server
+	if c.metrics != nil {
+		c.metrics.Stop()
+	}
+
+	// Close connection
+	if c.conn != nil {
+		c.conn.Close()
+	}
+
+	// Cancel context
+	c.cancel()
+
+	c.connected = false
 	return nil
 }
 
@@ -345,4 +409,21 @@ func (c *Client) GetConfig() *types.Config {
 // GetRetryStrategy returns the retry strategy
 func (c *Client) GetRetryStrategy() *errors.RetryStrategy {
 	return c.retryStrategy
+}
+
+// GetTenantID returns the tenant ID
+func (c *Client) GetTenantID() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.tenantID
+}
+
+// GetMetrics returns the metrics system
+func (c *Client) GetMetrics() *metrics.Metrics {
+	return c.metrics
+}
+
+// GetOptimizer returns the performance optimizer
+func (c *Client) GetOptimizer() *performance.Optimizer {
+	return c.optimizer
 } 

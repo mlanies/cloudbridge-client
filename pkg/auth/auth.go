@@ -12,6 +12,18 @@ import (
 	"github.com/2gc-dev/cloudbridge-client/pkg/errors"
 )
 
+// Claims represents JWT claims with tenant support
+type Claims struct {
+	Subject   string `json:"sub"`
+	TenantID  string `json:"tenant_id,omitempty"`
+	Issuer    string `json:"iss,omitempty"`
+	Audience  string `json:"aud,omitempty"`
+	ExpiresAt int64  `json:"exp,omitempty"`
+	IssuedAt  int64  `json:"iat,omitempty"`
+	NotBefore int64  `json:"nbf,omitempty"`
+	jwt.RegisteredClaims
+}
+
 // AuthManager handles authentication with relay server
 type AuthManager struct {
 	config     *AuthConfig
@@ -231,6 +243,37 @@ func (am *AuthManager) ExtractSubject(token *jwt.Token) (string, error) {
 	}
 
 	return subject, nil
+}
+
+// ExtractTenantID extracts tenant_id from token
+func (am *AuthManager) ExtractTenantID(token *jwt.Token) (string, error) {
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", fmt.Errorf("invalid token claims")
+	}
+
+	tenantID, ok := claims["tenant_id"].(string)
+	if !ok {
+		// Return empty string if tenant_id is not present (backward compatibility)
+		return "", nil
+	}
+
+	return tenantID, nil
+}
+
+// ExtractClaims extracts both subject and tenant_id from token
+func (am *AuthManager) ExtractClaims(token *jwt.Token) (string, string, error) {
+	subject, err := am.ExtractSubject(token)
+	if err != nil {
+		return "", "", err
+	}
+
+	tenantID, err := am.ExtractTenantID(token)
+	if err != nil {
+		return "", "", err
+	}
+
+	return subject, tenantID, nil
 }
 
 // CreateAuthMessage creates an authentication message for relay server
